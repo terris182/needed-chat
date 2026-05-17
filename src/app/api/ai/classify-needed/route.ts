@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { openai, withCircuitBreaker } from "@/lib/openai";
+import { getOpenAI, withCircuitBreaker } from "@/lib/openai";
 import { createClient } from "@/lib/supabase/server";
 
 const inputSchema = z.object({
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const { private_text } = inputSchema.parse(body);
 
     const classification = await withCircuitBreaker(async () => {
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAI().chat.completions.create({
         model: "gpt-4.1-nano",
         response_format: { type: "json_object" },
         max_tokens: 500,

@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let _stripe: Stripe | null = null;
+function getStripe() {
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  return _stripe;
+}
 
 const PRICES: Record<string, { price: number; name: string }> = {
   plus: { price: 499, name: "needed.chat Plus" },
@@ -23,7 +27,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/auth", request.url));
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     payment_method_types: ["card"],
     mode: "subscription",
     line_items: [

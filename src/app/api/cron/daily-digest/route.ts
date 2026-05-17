@@ -6,7 +6,11 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-const resend = new Resend(process.env.RESEND_API_KEY!);
+let _resend: Resend | null = null;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY!);
+  return _resend;
+}
 
 // Vercel Cron: runs daily at 8pm PT (users set their own digest_time, this is the dispatch window)
 // vercel.json: { "crons": [{ "path": "/api/cron/daily-digest", "schedule": "0 4 * * *" }] }
@@ -101,7 +105,7 @@ export async function GET(request: Request) {
       `;
 
       try {
-        await resend.emails.send({
+        await getResend().emails.send({
           from: "needed.chat <digest@needed.chat>",
           to: authUser.user.email,
           subject: `Your rooms — ${activeRooms.length} active conversation${activeRooms.length > 1 ? "s" : ""}`,

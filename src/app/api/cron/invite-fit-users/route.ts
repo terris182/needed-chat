@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
+import { getOpenAI } from "@/lib/openai";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 // Vercel Cron: runs every 6 hours
 // vercel.json: { "crons": [{ "path": "/api/cron/invite-fit-users", "schedule": "0 */6 * * *" }] }
@@ -52,7 +51,7 @@ export async function GET(request: Request) {
         // Generate a reason
         let reason = "This looks like a fit for what's been on your mind.";
         try {
-          const completion = await openai.chat.completions.create({
+          const completion = await getOpenAI().chat.completions.create({
             model: "gpt-4.1-nano",
             max_tokens: 40,
             messages: [

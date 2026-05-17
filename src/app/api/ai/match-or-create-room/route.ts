@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { embed, openai, withCircuitBreaker } from "@/lib/openai";
+import { embed, getOpenAI, withCircuitBreaker } from "@/lib/openai";
 import { createClient } from "@/lib/supabase/server";
 
 const inputSchema = z.object({
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
 async function generateMatchReason(roomTitle: string, tags: string[]): Promise<string> {
   try {
     const result = await withCircuitBreaker(async () => {
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAI().chat.completions.create({
         model: "gpt-4.1-nano",
         max_tokens: 60,
         messages: [

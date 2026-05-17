@@ -1,6 +1,13 @@
 import OpenAI from "openai";
 
-export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+// Lazy-init to avoid build-time crash when OPENAI_API_KEY is not yet set
+let _openai: OpenAI | null = null;
+export function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+  }
+  return _openai;
+}
 
 // Circuit breaker state (§19.3 — $50 staging, $500 prod)
 let consecutiveFailures = 0;
@@ -35,7 +42,7 @@ export async function withCircuitBreaker<T>(fn: () => Promise<T>): Promise<T> {
 
 export async function embed(text: string): Promise<number[]> {
   return withCircuitBreaker(async () => {
-    const res = await openai.embeddings.create({
+    const res = await getOpenAI().embeddings.create({
       model: "text-embedding-3-small",
       input: text,
     });
