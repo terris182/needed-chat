@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,14 @@ interface Recommendation {
 }
 
 export default function RecommendationsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh flex items-center justify-center"><p className="text-sm text-text-tertiary">Loading…</p></div>}>
+      <RecommendationsContent />
+    </Suspense>
+  );
+}
+
+function RecommendationsContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
