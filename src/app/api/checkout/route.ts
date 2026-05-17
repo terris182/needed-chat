@@ -21,6 +21,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
+  // Graceful degradation when Stripe isn't configured
+  if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === "NEEDS_SETUP") {
+    return NextResponse.json(
+      { error: "Payments are not yet configured. Free tier is fully functional." },
+      { status: 503 }
+    );
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {

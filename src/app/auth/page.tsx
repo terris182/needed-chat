@@ -3,17 +3,32 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    // TODO: Supabase magic link
-    // const { error } = await supabase.auth.signInWithOtp({ email });
+    setError("");
+
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { error: authError } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirectTo },
+    });
+
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
     setSent(true);
     setLoading(false);
   }
@@ -50,6 +65,7 @@ export default function AuthPage() {
             required
             autoFocus
           />
+          {error && <p className="text-xs text-red-500">{error}</p>}
           <Button type="submit" className="w-full" loading={loading}>
             Send magic link
           </Button>

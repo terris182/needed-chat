@@ -21,6 +21,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Graceful skip when Resend isn't configured
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "NEEDS_SETUP") {
+    return NextResponse.json({ skipped: true, reason: "RESEND_API_KEY not configured" });
+  }
+
   try {
     // Get users with digest enabled who have active room memberships
     const { data: users } = await supabase
