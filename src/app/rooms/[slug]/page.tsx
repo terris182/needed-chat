@@ -1,0 +1,281 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { MessageRow } from "@/components/ui/message-row";
+import { PinnedPromptCard } from "@/components/ui/pinned-prompt-card";
+import { Button } from "@/components/ui/button";
+import { AdSlot } from "@/components/ui/ad-slot";
+
+interface Message {
+  id: string;
+  body: string;
+  message_type: string;
+  moderation_status: string;
+  created_at: string;
+  user_id: string;
+  users_profile?: { username: string } | null;
+}
+
+interface Room {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  ad_safety_rating: "green" | "yellow" | "red";
+  daily_prompt: string | null;
+  status: string;
+  active_member_count: number;
+}
+
+export default function RoomPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const supabase = createClient();
+
+  const [room, setRoom] = useState<Room | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  // Load room + user + initial messages
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+
+      const { data: roomData } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("slug", slug)
+        .single();
+      if (roomData) setRoom(roomData as Room);
+
+      if (roomData) {
+        const { data: msgs } = await supabase
+          .from("messages")
+          .select("*, users_profile(username)")
+          .eq("room_id", roomData.id)
+          .in("moderation_status", ["pending", "safe"])
+          .order("created_at", { ascending: true })
+          .limit(50);
+        if (msgs) setMessages(msgs as Message[]);
+      }
+    }
+    init();
+  }, [slug, supabase]);
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!room) return;
+
+    const channel = supabase
+      .channel(`room:${room.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `room_id=eq.${room.id}`,
+        },
+        async (payload) => {
+          const msg = payload.new as Message;
+          if (msg.user_id) {
+            const { data: profile } = await supabase
+              .from("users_profile")
+              .select("username")
+              .eq("id", msg.user_id)
+              .single();
+            msg.users_profile = profile;
+          }
+          setMessages((prev) => [...prev, msg]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [room, supabase]);
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newMessage.trim() || !room || !userId || sending) return;
+
+    setSending(true);
+    const body = newMessage.trim();
+    setNewMessage("");
+
+    if (room.ad_safety_rating !== "green") {
+      // YELLOW/RED: pre-publish moderation
+      const { data: msg } = await supabase
+        .from("messages")
+        .insert({
+          room_id: room.id,
+          user_id: userId,
+          body,
+          moderation_status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (msg) {
+        const res = await fetch("/api/ai/moderate-message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message_id: msg.id,
+            body,
+            room_ad_safety_rating: room.ad_safety_rating,
+          }),
+        });
+        const modResult = await res.json();
+
+        if (modResult.status === "blocked") {
+          await supabase.from("messages").delete().eq("id", msg.id);
+        }
+      }
+    } else {
+      // GREEN: post-publish, async moderation
+      const { data: msg } = await supabase
+        .from("messages")
+        .insert({
+          room_id: room.id,
+          user_id: userId,
+          body,
+          moderation_status: "safe",
+        })
+        .select("id")
+        .single();
+
+      if (msg) {
+        fetch("/api/ai/moderate-message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message_id: msg.id,
+            body,
+            room_ad_safety_rating: room.ad_safety_rating,
+          }),
+        }).catch(() => {});
+      }
+    }
+
+    await supabase
+      .from("room_members")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("room_id", room.id)
+      .eq("user_id", userId);
+
+    setSending(false);
+    inputRef.current?.focus();
+  }
+
+  if (!room) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <p className="text-text-tertiary text-sm">Loading room...</p>
+      </div>
+    );
+  }
+
+  const isEarly = room.status === "seeding" && room.active_member_count < 3;
+
+  return (
+    <div className="flex flex-col h-dvh bg-bg">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-surface border-b border-border px-4 py-3 flex items-center gap-3">
+        <a href="/rooms" className="text-text-tertiary hover:text-text-primary text-sm">
+          &larr;
+        </a>
+        <div className="min-w-0 flex-1">
+          <h1 className="font-semibold text-sm text-text-primary truncate">{room.title}</h1>
+          <p className="text-xs text-text-tertiary">
+            {room.active_member_count} active &middot;{" "}
+            {room.ad_safety_rating === "red"
+              ? "safe space"
+              : room.ad_safety_rating === "yellow"
+                ? "sensitive"
+                : "open"}
+          </p>
+        </div>
+      </header>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto">
+        {room.daily_prompt && (
+          <div className="px-4 py-3">
+            <PinnedPromptCard prompt={room.daily_prompt} />
+          </div>
+        )}
+
+        {isEarly && (
+          <div className="px-4 py-6 text-center">
+            <p className="text-sm text-text-secondary font-medium">
+              You&apos;re early &mdash; this room is just getting started.
+            </p>
+            <p className="text-xs text-text-tertiary mt-1">
+              Be the first voice. Others with similar thoughts are being invited.
+            </p>
+          </div>
+        )}
+
+        {room.ad_safety_rating === "green" && (
+          <div className="px-4 py-2">
+            <AdSlot placement="chat-inline" roomSafetyTier="GREEN" />
+          </div>
+        )}
+
+        <div className="py-2">
+          {messages.map((msg) => (
+            <MessageRow
+              key={msg.id}
+              username={msg.users_profile?.username || "anonymous"}
+              body={msg.body}
+              createdAt={msg.created_at}
+              isOwn={msg.user_id === userId}
+            />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Compose */}
+      <div className="border-t border-border bg-surface p-3 pb-[env(safe-area-inset-bottom)]">
+        <form onSubmit={handleSend} className="flex gap-2 items-end">
+          <textarea
+            ref={inputRef}
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend(e);
+              }
+            }}
+            placeholder="Say something..."
+            rows={1}
+            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-accent/50"
+          />
+          <Button type="submit" size="sm" loading={sending} disabled={!newMessage.trim()}>
+            Send
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
