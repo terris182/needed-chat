@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 
 const ADJECTIVES = [
   "quiet", "bright", "gentle", "warm", "steady", "calm", "swift", "bold",
@@ -32,9 +33,22 @@ export default function OnboardingPage() {
 
   async function handleComplete() {
     setLoading(true);
-    // TODO: Save username to profiles table, redirect to /today
-    // const supabase = createClient();
-    // await supabase.from("profiles").update({ username }).eq("id", user.id);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Create profile (upsert to handle re-onboarding)
+    await supabase.from("users_profile").upsert({
+      id: user.id,
+      username,
+    });
+
+    // Track activation event
+    await supabase.from("activation_events").insert({
+      user_id: user.id,
+      event: "completed_onboarding",
+    });
+
     window.location.href = "/today";
   }
 
