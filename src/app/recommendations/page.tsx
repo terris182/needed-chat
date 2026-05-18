@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +32,39 @@ function RecommendationsContent() {
   const [crisisResources, setCrisisResources] = useState<Array<{ name: string; contact: string }>>([]);
   const supabase = createClient();
 
-  // This page can be reached from /today after submitting the brand question
-  // The actual classification + matching happens via API calls
+  // Read status from URL params and recommendations from sessionStorage on mount
+  useEffect(() => {
+    const urlStatus = searchParams.get("status");
+    if (urlStatus === "crisis") {
+      setStatus("crisis");
+      setCrisisResources([
+        { name: "988 Suicide & Crisis Lifeline", contact: "Call or text 988" },
+        { name: "Crisis Text Line", contact: "Text HOME to 741741" },
+        { name: "Samaritans (UK)", contact: "Call 116 123" },
+        { name: "Befrienders Worldwide", contact: "befrienders.org" },
+      ]);
+      return;
+    }
+    if (urlStatus === "no_match") {
+      setStatus("no_match");
+      return;
+    }
+
+    // Try to load recommendations from sessionStorage
+    try {
+      const stored = sessionStorage.getItem("recommendations");
+      if (stored) {
+        const parsed = JSON.parse(stored) as Recommendation[];
+        if (parsed.length > 0) {
+          setRecommendations(parsed);
+          setStatus("done");
+          sessionStorage.removeItem("recommendations");
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, [searchParams]);
 
   async function handleJoinRoom(roomSlug: string, roomId: string) {
     setLoading(true);
