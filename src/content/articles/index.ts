@@ -9,6 +9,10 @@ import { article as noOneUnderstandsGrief } from "./no-one-understands-grief";
 import { article as leftBehindByFriends } from "./left-behind-by-friends";
 import { article as anxietyAt3am } from "./anxiety-at-3am";
 import { article as imNotOkay } from "./im-not-okay";
+import { article as lonelyInACrowd } from "./lonely-in-a-crowd";
+import { article as grievingWhileFunctioning } from "./grieving-while-functioning";
+import { article as cantStopOverthinking } from "./cant-stop-overthinking";
+import { article as everythingTooMuch } from "./everything-too-much";
 
 export const articles: Article[] = [
   lonelyAtNight,
@@ -17,4 +21,8 @@ export const articles: Article[] = [
   leftBehindByFriends,
   anxietyAt3am,
   imNotOkay,
+  lonelyInACrowd,
+  grievingWhileFunctioning,
+  cantStopOverthinking,
+  everythingTooMuch,
 ];
