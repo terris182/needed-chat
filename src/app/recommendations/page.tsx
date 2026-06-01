@@ -95,27 +95,27 @@ function RecommendationsContent() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Set the icebreaker as the room's daily prompt so it's visible to everyone
+    // 1. Set icebreaker as daily_prompt FIRST (must complete before membership insert)
     await fetch("/api/rooms/set-icebreaker", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ room_id: icebreakerRoom.room_id, icebreaker }),
     });
 
-    // Create membership (triggers DB webhook → bots will see icebreaker via daily_prompt)
-    await supabase.from("room_members").upsert({
-      room_id: icebreakerRoom.room_id,
-      user_id: user.id,
-      role: "member",
-    });
-
-    // Post user's answer as their first message
+    // 2. Post user's icebreaker answer
     await supabase.from("messages").insert({
       room_id: icebreakerRoom.room_id,
       user_id: user.id,
       body: icebreakerAnswer.trim(),
       message_type: "user",
       moderation_status: "safe",
+    });
+
+    // 3. Create membership LAST — triggers DB webhook, bots will see daily_prompt + user's message
+    await supabase.from("room_members").upsert({
+      room_id: icebreakerRoom.room_id,
+      user_id: user.id,
+      role: "member",
     });
 
     // Track activation event
@@ -233,13 +233,13 @@ function RecommendationsContent() {
       </p>
 
       <div className="space-y-3">
-        {recommendations.map((rec) => (
+        {recommendations.map((rec, i) => (
           <Card key={rec.room_id}>
             <div className="flex items-start justify-between gap-2 mb-2">
               <h3 className="font-semibold text-sm text-text-primary">{rec.title}</h3>
-              {rec.action === "auto_route" && (
-                <Badge variant="accent">Strong match</Badge>
-              )}
+              <Badge variant={i === 0 ? "accent" : "green"}>
+                {i === 0 ? "Strong match" : "Active now"}
+              </Badge>
             </div>
             <p className="text-xs text-text-secondary mb-3">{rec.reason}</p>
             <Button

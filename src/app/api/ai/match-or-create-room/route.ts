@@ -112,7 +112,7 @@ export async function POST(request: Request) {
         const hasCapacity = !engagement || engagement.active_count < engagement.invite_quota;
         if (!hasCapacity) continue;
 
-        const reason = await generateMatchReason(match.title, classification.tags);
+        const reason = await generateMatchReason(match.title, classification.tags, private_text);
         recommendations.push({
           room_id: match.id,
           title: match.title,
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
     if (!bestMatch) {
       const newRoom = await createRoomForUser(classification, userEmbedding, user.id, prompt?.id, icebreaker_question);
       if (newRoom) {
-        const reason = await generateMatchReason(newRoom.title, classification.tags);
+        const reason = await generateMatchReason(newRoom.title, classification.tags, private_text);
         bestMatch = {
           room_id: newRoom.id,
           title: newRoom.title,
@@ -169,7 +169,7 @@ export async function POST(request: Request) {
       // Pick up to 2 active rooms, generate reasons
       const extras = activeRooms.slice(0, 2);
       for (const room of extras) {
-        const reason = await generateMatchReason(room.title, classification.tags);
+        const reason = await generateMatchReason(room.title, classification.tags, private_text, true);
         recommendations.push({
           room_id: room.id,
           title: room.title,
@@ -275,28 +275,29 @@ async function createRoomForUser(
   }
 }
 
-async function generateMatchReason(roomTitle: string, tags: string[]): Promise<string> {
+async function generateMatchReason(roomTitle: string, tags: string[], userText?: string, isActive?: boolean): Promise<string> {
   try {
+    const context = isActive
+      ? `This is an active room being suggested because people are talking there now. Explain in ≤15 words why the user might enjoy this room given what they shared. Be specific to the room's topic.`
+      : `Explain in ≤15 words why this room fits what the user shared. Be specific — reference the room topic and what the user said. Don't start with "This room" or "Because".`;
+
     const result = await withCircuitBreaker(async () => {
       const completion = await getOpenAI().chat.completions.create({
         model: "gpt-4.1-nano",
         max_tokens: 60,
         messages: [
-          {
-            role: "system",
-            content: "Write a brief, warm one-sentence reason why this room matches the user's interests. Max 15 words. Don't start with 'This room' or 'Because'. Be specific to the room topic.",
-          },
+          { role: "system", content: context },
           {
             role: "user",
-            content: `Room: "${roomTitle}". User tags: ${tags.join(", ")}`,
+            content: `Room: "${roomTitle}". User said: "${userText || tags.join(", ")}"`,
           },
         ],
       });
-      return completion.choices[0].message.content || "Looks like a good fit for what's on your mind.";
+      return completion.choices[0].message.content || "Others here are talking about similar things.";
     });
     return result;
   } catch {
-    return "Looks like a good fit for what's on your mind.";
+    return "Others here are talking about similar things.";
   }
 }
 

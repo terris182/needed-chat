@@ -119,25 +119,63 @@ async function seedWithTwoBots(room: any, botIds: string[], icebreakerQuestion?:
 }
 
 async function continueConvo(room: any, messages: any[], botIds: string[], icebreakerQuestion?: string | null) {
-  const lastMsg = messages[0];
-  const bot = randomBot(lastMsg?.user_id);
-  if (!bot) return;
+  // Find the most recent non-bot message (the user's icebreaker answer)
+  const userMsg = messages.find((m: any) => !botIds.includes(m.user_id));
+
+  const bot1 = randomBot(userMsg?.user_id);
+  if (!bot1) return;
 
   await getSupabase().from("room_members").upsert(
-    { room_id: room.id, user_id: bot.id, role: "member" },
+    { room_id: room.id, user_id: bot1.id, role: "member" },
     { onConflict: "room_id,user_id" }
   );
 
-  const context = messages.slice(0, 5).reverse().map((m: any) => `someone: ${m.body}`).join("\n");
+  // If there's an icebreaker question and a user answer, respond to both
+  const hasIcebreaker = icebreakerQuestion && userMsg;
 
-  const completion = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 70, temperature: 0.85,
+  let systemPrompt: string;
+  let userContent: string;
+
+  if (hasIcebreaker) {
+    systemPrompt = `${bot1.voice}\n\nYou're in an anonymous peer support room called "${room.title}". The room's question is: "${icebreakerQuestion}". Someone just answered it. Share your own honest answer to the same question AND respond warmly to what they said. Keep it short (2-3 sentences). No greetings.`;
+    userContent = `They said: ${userMsg.body}`;
+  } else {
+    const context = messages.slice(0, 5).reverse().map((m: any) => `someone: ${m.body}`).join("\n");
+    systemPrompt = `${bot1.voice}\n\nYou're in an anonymous peer support room called "${room.title}". Continue naturally — no greeting, no acknowledgment of anyone joining. Just respond to the conversation.`;
+    userContent = `Recent:\n${context}\n\nContinue as ${bot1.displayName}:`;
+  }
+
+  const r1 = await getOpenAI().chat.completions.create({
+    model: "gpt-4o-mini", max_tokens: 80, temperature: 0.85,
     messages: [
-      { role: "system", content: `${bot.voice}\n\nYou're in an anonymous peer support room called "${room.title}". Continue naturally — no greeting, no acknowledgment of anyone joining. Just respond to the conversation.` },
-      { role: "user", content: `Recent:\n${context}\n\nContinue as ${bot.displayName}:` },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
     ],
   });
-  const body = completion.choices[0]?.message?.content?.trim();
-  if (!body) return;
-  await getSupabase().from("messages").insert({ room_id: room.id, user_id: bot.id, body, message_type: "user", moderation_status: "safe" });
+  const body1 = r1.choices[0]?.message?.content?.trim();
+  if (!body1) return;
+  await getSupabase().from("messages").insert({ room_id: room.id, user_id: bot1.id, body: body1, message_type: "user", moderation_status: "safe" });
+
+  // If icebreaker flow, add a second bot response for more life
+  if (hasIcebreaker) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const bot2 = randomBot(bot1.id);
+    if (!bot2) return;
+
+    await getSupabase().from("room_members").upsert(
+      { room_id: room.id, user_id: bot2.id, role: "member" },
+      { onConflict: "room_id,user_id" }
+    );
+
+    const r2 = await getOpenAI().chat.completions.create({
+      model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
+      messages: [
+        { role: "system", content: `${bot2.voice}\n\nYou're in an anonymous peer support room called "${room.title}". The question was: "${icebreakerQuestion}". Others have answered. Share your own honest, specific answer. Keep it short. No greetings.` },
+        { role: "user", content: `${bot1.displayName}: ${body1}\nSomeone else: ${userMsg.body}` },
+      ],
+    });
+    const body2 = r2.choices[0]?.message?.content?.trim();
+    if (!body2) return;
+    await getSupabase().from("messages").insert({ room_id: room.id, user_id: bot2.id, body: body2, message_type: "user", moderation_status: "safe" });
+  }
 }
