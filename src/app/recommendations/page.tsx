@@ -92,37 +92,16 @@ function RecommendationsContent() {
   async function handleJoinWithIcebreaker() {
     if (!icebreakerRoom || !icebreaker || !icebreakerAnswer.trim()) return;
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
-    // 1. Set icebreaker as daily_prompt FIRST (must complete before membership insert)
-    await fetch("/api/rooms/set-icebreaker", {
+    // Single server call: sets icebreaker, posts answer, joins, triggers bots
+    await fetch("/api/rooms/join-with-icebreaker", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_id: icebreakerRoom.room_id, icebreaker }),
-    });
-
-    // 2. Post user's icebreaker answer
-    await supabase.from("messages").insert({
-      room_id: icebreakerRoom.room_id,
-      user_id: user.id,
-      body: icebreakerAnswer.trim(),
-      message_type: "user",
-      moderation_status: "safe",
-    });
-
-    // 3. Create membership LAST — triggers DB webhook, bots will see daily_prompt + user's message
-    await supabase.from("room_members").upsert({
-      room_id: icebreakerRoom.room_id,
-      user_id: user.id,
-      role: "member",
-    });
-
-    // Track activation event
-    await supabase.from("activation_events").insert({
-      user_id: user.id,
-      event: "joined_room",
-      metadata: { room_id: icebreakerRoom.room_id },
+      body: JSON.stringify({
+        room_id: icebreakerRoom.room_id,
+        icebreaker,
+        answer: icebreakerAnswer.trim(),
+      }),
     });
 
     window.location.href = `/rooms/${icebreakerRoom.slug}`;
