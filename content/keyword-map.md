@@ -10,7 +10,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 ## Cluster: Loneliness & isolation
 - how to cope with loneliness at night — live (lonely-at-night)
 - what to do when you have no one to talk to — live (no-one-to-talk-to)
-- feeling lonely even when surrounded by people — queued
+- feeling lonely even when surrounded by people — live (lonely-in-a-crowd)
 - how to deal with loneliness after moving to a new city — queued
 - why do i feel so alone all the time — queued
 - how to feel less alone when living by yourself — queued
@@ -24,14 +24,14 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 
 ## Cluster: Grief & loss
 - when no one understands your grief — live (no-one-understands-grief)
-- how to grieve when you have to keep functioning — queued
+- how to grieve when you have to keep functioning — live (grieving-while-functioning)
 - grief that comes back months later — queued
 - how to support yourself through the first holiday after a loss — queued
 - is it normal to still be grieving after a year — queued
 
 ## Cluster: Anxiety & racing thoughts
 - how to calm down when anxiety hits at night — live (anxiety-at-3am)
-- what to do when you can't stop overthinking at night — queued
+- what to do when you can't stop overthinking at night — live (cant-stop-overthinking)
 - how to quiet racing thoughts before sleep — queued
 - waking up at 3am with anxiety — queued
 - how to ground yourself during a panic moment — queued
@@ -44,7 +44,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 - how to talk about feelings when you were raised not to — queued
 
 ## Cluster: Burnout & overwhelm
-- how to cope when everything feels like too much — queued
+- how to cope when everything feels like too much — live (everything-too-much)
 - what to do when you're exhausted but can't rest — queued
 - feeling overwhelmed and not knowing where to start — queued
 - how to get through a day when you have no motivation — queued

@@ -39,6 +39,7 @@ export default function TodayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [myRooms, setMyRooms] = useState<MyRoom[]>([]);
+  const [icebreaker, setIcebreaker] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -54,6 +55,19 @@ export default function TodayPage() {
         .order("fit_score", { ascending: false })
         .limit(5);
       if (inv) setInvites(inv as unknown as Invite[]);
+
+      // Load daily icebreaker question
+      try {
+        const icebreakerRes = await fetch("/api/ai/generate-icebreaker", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ room_title: "Today", category: "general", tags: ["daily", "icebreaker"] }),
+        });
+        const icebreakerData = await icebreakerRes.json();
+        if (icebreakerData.question) setIcebreaker(icebreakerData.question);
+      } catch {
+        // fallback handled by null state
+      }
 
       // Load my rooms
       const { data: rooms } = await supabase
@@ -96,11 +110,15 @@ export default function TodayPage() {
         });
       }
 
-      // Step 2: Match or create room
+      // Step 2: Match or create room (pass icebreaker context for bots)
       const matchRes = await fetch("/api/ai/match-or-create-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ private_text: text.trim(), classification }),
+        body: JSON.stringify({
+          private_text: text.trim(),
+          classification,
+          ...(icebreaker && { icebreaker_question: icebreaker }),
+        }),
       });
       const matchResult = await matchRes.json();
 
@@ -158,18 +176,24 @@ export default function TodayPage() {
       </header>
 
       <main className="px-4 py-4 space-y-6 max-w-lg mx-auto">
-        {/* Brand question */}
+        {/* Daily icebreaker + brand question */}
         <section>
-          <p className="text-xl font-semibold text-text-primary leading-snug">
-            What have you needed to talk about?
-          </p>
+          {icebreaker ? (
+            <p className="text-xl font-semibold text-text-primary leading-snug">
+              {icebreaker}
+            </p>
+          ) : (
+            <p className="text-xl font-semibold text-text-primary leading-snug">
+              What have you needed to talk about?
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="mt-3">
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-3 text-sm text-text-primary placeholder:text-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent"
               rows={3}
-              placeholder="I've been thinking about..."
+              placeholder={icebreaker ? "Share what comes to mind..." : "I've been thinking about..."}
               maxLength={2000}
             />
             <button

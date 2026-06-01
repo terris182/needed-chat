@@ -27,6 +27,7 @@ export async function POST(request: Request) {
 
   const payload = await request.json();
   const record = payload.record;
+  const icebreakerQuestion = payload.icebreaker_question || null;
   if (!record?.room_id || !record?.user_id) {
     return NextResponse.json({ ok: true, skipped: "no record" });
   }
@@ -51,15 +52,15 @@ export async function POST(request: Request) {
     .order("created_at", { ascending: false }).limit(8);
 
   if (!messages?.length) {
-    await seedWithTwoBots(room, botIds);
+    await seedWithTwoBots(room, botIds, icebreakerQuestion);
   } else {
-    await continueConvo(room, messages, botIds);
+    await continueConvo(room, messages, botIds, icebreakerQuestion);
   }
 
   return NextResponse.json({ ok: true });
 }
 
-async function seedWithTwoBots(room: any, botIds: string[]) {
+async function seedWithTwoBots(room: any, botIds: string[], icebreakerQuestion?: string | null) {
   const bot1 = randomBot();
   const bot2 = randomBot(bot1?.id);
   if (!bot1 || !bot2) return;
@@ -70,9 +71,13 @@ async function seedWithTwoBots(room: any, botIds: string[]) {
     { onConflict: "room_id,user_id" }
   );
 
+  const icebreakerContext = icebreakerQuestion
+    ? `\n\nToday's icebreaker question is: "${icebreakerQuestion}" — weave your response around this naturally, but don't quote it directly.`
+    : "";
+
   const r1 = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
-    messages: [{ role: "system", content: `${bot1.voice}\n\nYou just entered an anonymous peer support room called "${room.title}". Write one short opening message about something real you're carrying. No names, no greetings.` }],
+    messages: [{ role: "system", content: `${bot1.voice}\n\nYou just entered an anonymous peer support room called "${room.title}". Write one short opening message about something real you're carrying. No names, no greetings.${icebreakerContext}` }],
   });
   const body1 = r1.choices[0]?.message?.content?.trim();
   if (!body1) return;
@@ -92,7 +97,7 @@ async function seedWithTwoBots(room: any, botIds: string[]) {
   await getSupabase().from("messages").insert({ room_id: room.id, user_id: bot2.id, body: body2, message_type: "user", moderation_status: "safe" });
 }
 
-async function continueConvo(room: any, messages: any[], botIds: string[]) {
+async function continueConvo(room: any, messages: any[], botIds: string[], icebreakerQuestion?: string | null) {
   const lastMsg = messages[0];
   const bot = randomBot(lastMsg?.user_id);
   if (!bot) return;

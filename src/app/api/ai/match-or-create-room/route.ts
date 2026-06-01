@@ -15,6 +15,7 @@ function getService() {
 
 const inputSchema = z.object({
   private_text: z.string().min(1),
+  icebreaker_question: z.string().optional(),
   classification: z.object({
     category: z.string(),
     intensity: z.string(),
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { private_text, classification } = inputSchema.parse(body);
+    const { private_text, classification, icebreaker_question } = inputSchema.parse(body);
 
     // Crisis path — don't match, show resources
     if (classification.risk_level === "high" || !classification.safe_to_match) {
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
 
     // If no matches, create a room on the fly and seed it with bots
     if (recommendations.length === 0) {
-      const newRoom = await createRoomForUser(classification, userEmbedding, user.id, prompt?.id);
+      const newRoom = await createRoomForUser(classification, userEmbedding, user.id, prompt?.id, icebreaker_question);
       if (newRoom) {
         // Present new rooms identically to matched rooms — no hint it was just created
         const reason = await generateMatchReason(newRoom.title, classification.tags);
@@ -178,7 +179,8 @@ async function createRoomForUser(
   classification: any,
   embedding: any,
   userId: string,
-  promptId: string | undefined
+  promptId: string | undefined,
+  icebreakerQuestion?: string
 ): Promise<{ id: string; title: string; slug: string } | null> {
   try {
     const db = getService();
@@ -219,7 +221,7 @@ async function createRoomForUser(
       { onConflict: "room_id,user_id" }
     );
 
-    // Trigger bot engagement immediately
+    // Trigger bot engagement immediately (pass icebreaker so bots can reference it)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://needed.chat";
     fetch(`${appUrl}/api/webhooks/room-join`, {
       method: "POST",
@@ -227,7 +229,10 @@ async function createRoomForUser(
         "Content-Type": "application/json",
         "x-supabase-webhook-secret": (process.env.ROOM_JOIN_WEBHOOK_SECRET || "").trim(),
       },
-      body: JSON.stringify({ record: { room_id: room.id, user_id: userId } }),
+      body: JSON.stringify({
+        record: { room_id: room.id, user_id: userId },
+        ...(icebreakerQuestion && { icebreaker_question: icebreakerQuestion }),
+      }),
     }).catch(() => {}); // fire-and-forget
 
     return room;
