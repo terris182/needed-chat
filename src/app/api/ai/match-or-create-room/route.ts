@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { embed, getOpenAI, withCircuitBreaker } from "@/lib/openai";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
+
+let _service: any = null;
+function getService() {
+  if (!_service) _service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  return _service;
+}
 
 const inputSchema = z.object({
   private_text: z.string().min(1),
@@ -127,8 +137,23 @@ export async function POST(request: Request) {
       }
     }
 
-    // If no matches above suggest threshold, consider seeding a new room
+    // If no matches, create a room on the fly and seed it with bots
     if (recommendations.length === 0) {
+      const newRoom = await createRoomForUser(classification, userEmbedding, user.id, prompt?.id);
+      if (newRoom) {
+        return NextResponse.json({
+          action: "auto_route",
+          recommendations: [{
+            room_id: newRoom.id,
+            title: newRoom.title,
+            slug: newRoom.slug,
+            score: 1.0,
+            reason: "We made a space just for this.",
+            action: "auto_route" as const,
+          }],
+          prompt_id: prompt?.id,
+        });
+      }
       return NextResponse.json({
         action: "no_match",
         message: "We don't have a room that fits yet, but we're looking.",
@@ -144,6 +169,67 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("match-or-create-room error:", error);
     return NextResponse.json({ error: "Matching failed" }, { status: 500 });
+  }
+}
+
+async function createRoomForUser(
+  classification: any,
+  embedding: any,
+  userId: string,
+  promptId: string | undefined
+): Promise<{ id: string; title: string; slug: string } | null> {
+  try {
+    const db = getService();
+
+    // Generate a room title from category/tags
+    const titleCompletion = await getOpenAI().chat.completions.create({
+      model: "gpt-4o-mini",
+      max_tokens: 20,
+      messages: [{
+        role: "system",
+        content: "Create a short, warm, anonymous chat room name (4-6 words max) for people sharing this feeling. No quotes. E.g. 'Hard Week', 'Feeling Stuck Right Now', 'Late Night Thoughts'.",
+      }, {
+        role: "user",
+        content: `Category: ${classification.category}. Tags: ${classification.tags?.join(", ")}`,
+      }],
+    });
+    const title = titleCompletion.choices[0]?.message?.content?.trim() || classification.category || "A Space to Talk";
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+    // Create the room
+    const { data: room } = await db.from("rooms").insert({
+      title,
+      slug: `${slug}-${Date.now().toString(36)}`,
+      status: "active",
+      origin: "user",
+      embedding,
+      invite_quota: 12,
+      active_member_count: 0,
+    }).select("id, title, slug").single();
+
+    if (!room) return null;
+
+    // Add the user as member
+    await db.from("room_members").upsert(
+      { room_id: room.id, user_id: userId, role: "member" },
+      { onConflict: "room_id,user_id" }
+    );
+
+    // Trigger bot engagement immediately
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://needed.chat";
+    fetch(`${appUrl}/api/webhooks/room-join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-supabase-webhook-secret": (process.env.ROOM_JOIN_WEBHOOK_SECRET || "").trim(),
+      },
+      body: JSON.stringify({ record: { room_id: room.id, user_id: userId } }),
+    }).catch(() => {}); // fire-and-forget
+
+    return room;
+  } catch (e) {
+    console.error("createRoomForUser error:", e);
+    return null;
   }
 }
 
