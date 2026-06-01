@@ -39,20 +39,6 @@ export default function TodayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [myRooms, setMyRooms] = useState<MyRoom[]>([]);
-  const [icebreaker, setIcebreaker] = useState<string | null>(null);
-
-  // Fetch icebreaker independently — no auth needed, fires immediately
-  useEffect(() => {
-    fetch("/api/ai/generate-icebreaker", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_title: "Today", category: "general", tags: ["daily", "icebreaker"] }),
-    })
-      .then((res) => res.json())
-      .then((data) => { if (data.question) setIcebreaker(data.question); })
-      .catch(() => {});
-  }, []);
-
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -109,15 +95,11 @@ export default function TodayPage() {
         });
       }
 
-      // Step 2: Match or create room (pass icebreaker context for bots)
+      // Step 2: Match or create room
       const matchRes = await fetch("/api/ai/match-or-create-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          private_text: text.trim(),
-          classification,
-          ...(icebreaker && { icebreaker_question: icebreaker }),
-        }),
+        body: JSON.stringify({ private_text: text.trim(), classification }),
       });
       const matchResult = await matchRes.json();
 
@@ -175,24 +157,18 @@ export default function TodayPage() {
       </header>
 
       <main className="px-4 py-4 space-y-6 max-w-lg mx-auto">
-        {/* Daily icebreaker + brand question */}
+        {/* Brand question */}
         <section>
-          {icebreaker ? (
-            <p className="text-xl font-semibold text-text-primary leading-snug">
-              {icebreaker}
-            </p>
-          ) : (
-            <p className="text-xl font-semibold text-text-primary leading-snug">
-              What have you needed to talk about?
-            </p>
-          )}
+          <p className="text-xl font-semibold text-text-primary leading-snug">
+            What have you needed to talk about?
+          </p>
           <form onSubmit={handleSubmit} className="mt-3">
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-3 text-sm text-text-primary placeholder:text-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent"
               rows={3}
-              placeholder={icebreaker ? "Share what comes to mind..." : "I've been thinking about..."}
+              placeholder="I've been thinking about..."
               maxLength={2000}
             />
             <button

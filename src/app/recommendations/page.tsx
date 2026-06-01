@@ -30,6 +30,10 @@ function RecommendationsContent() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "crisis" | "no_match">("idle");
   const [crisisResources, setCrisisResources] = useState<Array<{ name: string; contact: string }>>([]);
+  const [icebreakerRoom, setIcebreakerRoom] = useState<Recommendation | null>(null);
+  const [icebreaker, setIcebreaker] = useState<string | null>(null);
+  const [icebreakerAnswer, setIcebreakerAnswer] = useState("");
+  const [loadingIcebreaker, setLoadingIcebreaker] = useState(false);
   const supabase = createClient();
 
   // Read status from URL params and recommendations from sessionStorage on mount
@@ -66,26 +70,57 @@ function RecommendationsContent() {
     }
   }, [searchParams]);
 
-  async function handleJoinRoom(roomSlug: string, roomId: string) {
+  async function handleSelectRoom(rec: Recommendation) {
+    setLoadingIcebreaker(true);
+    setIcebreakerRoom(rec);
+
+    // Fetch icebreaker question for this room
+    try {
+      const res = await fetch("/api/ai/generate-icebreaker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room_title: rec.title, category: "general", tags: [] }),
+      });
+      const data = await res.json();
+      if (data.question) setIcebreaker(data.question);
+    } catch {
+      setIcebreaker("What's been on your mind about this?");
+    }
+    setLoadingIcebreaker(false);
+  }
+
+  async function handleJoinWithIcebreaker() {
+    if (!icebreakerRoom) return;
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     // Create membership
     await supabase.from("room_members").upsert({
-      room_id: roomId,
+      room_id: icebreakerRoom.room_id,
       user_id: user.id,
       role: "member",
     });
+
+    // Post their icebreaker answer as first message if they wrote one
+    if (icebreakerAnswer.trim()) {
+      await supabase.from("messages").insert({
+        room_id: icebreakerRoom.room_id,
+        user_id: user.id,
+        body: icebreakerAnswer.trim(),
+        message_type: "user",
+        moderation_status: "safe",
+      });
+    }
 
     // Track activation event
     await supabase.from("activation_events").insert({
       user_id: user.id,
       event: "joined_room",
-      metadata: { room_id: roomId },
+      metadata: { room_id: icebreakerRoom.room_id },
     });
 
-    window.location.href = `/rooms/${roomSlug}`;
+    window.location.href = `/rooms/${icebreakerRoom.slug}`;
   }
 
   if (status === "crisis") {
@@ -134,6 +169,54 @@ function RecommendationsContent() {
     );
   }
 
+  // Icebreaker step — after selecting a room
+  if (icebreakerRoom && icebreaker) {
+    return (
+      <main className="min-h-dvh px-4 py-6 max-w-lg mx-auto">
+        <button
+          onClick={() => { setIcebreakerRoom(null); setIcebreaker(null); setIcebreakerAnswer(""); }}
+          className="text-sm text-text-tertiary hover:text-text-primary mb-4"
+        >
+          &larr; Back to rooms
+        </button>
+
+        <Card>
+          <h3 className="font-semibold text-sm text-text-primary mb-1">{icebreakerRoom.title}</h3>
+          <p className="text-xl font-semibold text-text-primary leading-snug mt-4 mb-3">
+            {icebreaker}
+          </p>
+          <textarea
+            value={icebreakerAnswer}
+            onChange={(e) => setIcebreakerAnswer(e.target.value)}
+            className="w-full rounded-lg border border-border bg-bg px-3 py-3 text-sm text-text-primary placeholder:text-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-accent/50"
+            rows={3}
+            placeholder="Share what comes to mind..."
+            maxLength={1000}
+          />
+          <div className="flex gap-2 mt-3">
+            <Button
+              size="sm"
+              onClick={handleJoinWithIcebreaker}
+              loading={loading}
+              disabled={loading}
+            >
+              {icebreakerAnswer.trim() ? "Enter room" : "Skip & enter"}
+            </Button>
+          </div>
+        </Card>
+      </main>
+    );
+  }
+
+  // Loading icebreaker
+  if (icebreakerRoom && loadingIcebreaker) {
+    return (
+      <main className="min-h-dvh flex items-center justify-center">
+        <p className="text-sm text-text-tertiary">Loading...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-dvh px-4 py-6 max-w-lg mx-auto">
       <h1 className="text-lg font-semibold text-text-primary mb-1">Rooms for you</h1>
@@ -153,8 +236,7 @@ function RecommendationsContent() {
             <p className="text-xs text-text-secondary mb-3">{rec.reason}</p>
             <Button
               size="sm"
-              onClick={() => handleJoinRoom(rec.slug, rec.room_id)}
-              loading={loading}
+              onClick={() => handleSelectRoom(rec)}
             >
               Join room
             </Button>
