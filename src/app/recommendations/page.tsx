@@ -181,8 +181,11 @@ function RecommendationsContent() {
         </button>
 
         <Card>
-          <h3 className="font-semibold text-sm text-text-primary mb-1">{icebreakerRoom.title}</h3>
-          <p className="text-xl font-semibold text-text-primary leading-snug mt-4 mb-3">
+          <h3 className="font-semibold text-sm text-text-primary">{icebreakerRoom.title}</h3>
+          <p className="text-xs text-text-secondary mt-1 mb-4">
+            Answer to enter — your response will be shared as your first message in the room.
+          </p>
+          <p className="text-xl font-semibold text-text-primary leading-snug mb-3">
             {icebreaker}
           </p>
           <textarea
@@ -198,9 +201,9 @@ function RecommendationsContent() {
               size="sm"
               onClick={handleJoinWithIcebreaker}
               loading={loading}
-              disabled={loading}
+              disabled={!icebreakerAnswer.trim() || loading}
             >
-              {icebreakerAnswer.trim() ? "Enter room" : "Skip & enter"}
+              Enter room
             </Button>
           </div>
         </Card>
