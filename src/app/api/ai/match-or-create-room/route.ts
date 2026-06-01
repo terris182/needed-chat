@@ -98,9 +98,11 @@ export async function POST(request: Request) {
       action: "auto_route" | "suggest";
     }> = [];
 
+    // Build the best match (slot 1) from vector results
+    let bestMatch: typeof recommendations[0] | null = null;
+
     if (matches?.length) {
       for (const match of matches) {
-        // Check room capacity
         const { data: engagement } = await supabase
           .from("room_engagement")
           .select("active_count, invite_quota")
@@ -108,55 +110,42 @@ export async function POST(request: Request) {
           .single();
 
         const hasCapacity = !engagement || engagement.active_count < engagement.invite_quota;
+        if (!hasCapacity) continue;
 
-        if (hasCapacity) {
-          // Generate a human reason for the match
-          const reason = await generateMatchReason(match.title, classification.tags);
-
-          recommendations.push({
-            room_id: match.id,
-            title: match.title,
-            slug: match.slug,
-            score: match.similarity,
-            reason,
-            action: match.similarity >= AUTO_ROUTE_THRESHOLD ? "auto_route" : "suggest",
-          });
-        }
+        const reason = await generateMatchReason(match.title, classification.tags);
+        recommendations.push({
+          room_id: match.id,
+          title: match.title,
+          slug: match.slug,
+          score: match.similarity,
+          reason,
+          action: match.similarity >= AUTO_ROUTE_THRESHOLD ? "auto_route" : "suggest",
+        });
       }
-
-      // Store recommendations for audit
-      if (prompt?.id) {
-        await supabase.from("room_recommendations").insert(
-          recommendations.map((r) => ({
-            user_id: user.id,
-            needed_prompt_id: prompt.id,
-            room_id: r.room_id,
-            reason: r.reason,
-            score: r.score,
-          }))
-        );
+      if (recommendations.length > 0) {
+        bestMatch = recommendations[0]; // highest similarity first (already sorted by pgvector)
       }
     }
 
-    // If no matches, create a room on the fly and seed it with bots
-    if (recommendations.length === 0) {
+    // If no vector match, create a room (slot 1) — looks identical to a match
+    if (!bestMatch) {
       const newRoom = await createRoomForUser(classification, userEmbedding, user.id, prompt?.id, icebreaker_question);
       if (newRoom) {
-        // Present new rooms identically to matched rooms — no hint it was just created
         const reason = await generateMatchReason(newRoom.title, classification.tags);
-        return NextResponse.json({
-          action: "matched",
-          recommendations: [{
-            room_id: newRoom.id,
-            title: newRoom.title,
-            slug: newRoom.slug,
-            score: 0.88,
-            reason,
-            action: "auto_route" as const,
-          }],
-          prompt_id: prompt?.id,
-        });
+        bestMatch = {
+          room_id: newRoom.id,
+          title: newRoom.title,
+          slug: newRoom.slug,
+          score: 0.88,
+          reason,
+          action: "auto_route",
+        };
+        // Insert at front
+        recommendations.unshift(bestMatch);
       }
+    }
+
+    if (!bestMatch) {
       return NextResponse.json({
         action: "no_match",
         message: "We don't have a room that fits yet, but we're looking.",
@@ -164,9 +153,53 @@ export async function POST(request: Request) {
       });
     }
 
+    // Slots 2-3: active rooms with engagement (not already in recommendations)
+    const usedRoomIds = recommendations.map((r) => r.room_id);
+    const { data: activeRooms } = await getService()
+      .from("rooms")
+      .select("id, title, slug, active_member_count, message_count_24h, ad_safety_rating")
+      .in("status", ["active", "seeding"])
+      .not("id", "in", `(${usedRoomIds.join(",")})`)
+      .gt("active_member_count", 0)
+      .order("message_count_24h", { ascending: false })
+      .order("active_member_count", { ascending: false })
+      .limit(10);
+
+    if (activeRooms?.length) {
+      // Pick up to 2 active rooms, generate reasons
+      const extras = activeRooms.slice(0, 2);
+      for (const room of extras) {
+        const reason = await generateMatchReason(room.title, classification.tags);
+        recommendations.push({
+          room_id: room.id,
+          title: room.title,
+          slug: room.slug,
+          score: 0.55, // show as related, not "Strong match"
+          reason,
+          action: "suggest",
+        });
+      }
+    }
+
+    // Cap at 3 total: best match + 2 active
+    const finalRecs = recommendations.slice(0, 3);
+
+    // Store recommendations for audit
+    if (prompt?.id && finalRecs.length) {
+      await supabase.from("room_recommendations").insert(
+        finalRecs.map((r) => ({
+          user_id: user.id,
+          needed_prompt_id: prompt.id,
+          room_id: r.room_id,
+          reason: r.reason,
+          score: r.score,
+        }))
+      );
+    }
+
     return NextResponse.json({
       action: "matched",
-      recommendations,
+      recommendations: finalRecs,
       prompt_id: prompt?.id,
     });
   } catch (error) {

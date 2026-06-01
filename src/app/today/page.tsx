@@ -41,6 +41,18 @@ export default function TodayPage() {
   const [myRooms, setMyRooms] = useState<MyRoom[]>([]);
   const [icebreaker, setIcebreaker] = useState<string | null>(null);
 
+  // Fetch icebreaker independently — no auth needed, fires immediately
+  useEffect(() => {
+    fetch("/api/ai/generate-icebreaker", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_title: "Today", category: "general", tags: ["daily", "icebreaker"] }),
+    })
+      .then((res) => res.json())
+      .then((data) => { if (data.question) setIcebreaker(data.question); })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -55,19 +67,6 @@ export default function TodayPage() {
         .order("fit_score", { ascending: false })
         .limit(5);
       if (inv) setInvites(inv as unknown as Invite[]);
-
-      // Load daily icebreaker question
-      try {
-        const icebreakerRes = await fetch("/api/ai/generate-icebreaker", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ room_title: "Today", category: "general", tags: ["daily", "icebreaker"] }),
-        });
-        const icebreakerData = await icebreakerRes.json();
-        if (icebreakerData.question) setIcebreaker(icebreakerData.question);
-      } catch {
-        // fallback handled by null state
-      }
 
       // Load my rooms
       const { data: rooms } = await supabase
