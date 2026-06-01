@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let _supabase: any = null;
+function getSupabase() {
+  if (!_supabase) _supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  return _supabase;
+}
 
 // Vercel Cron: runs hourly
 // vercel.json: { "crons": [{ "path": "/api/cron/refresh-engagement", "schedule": "0 * * * *" }] }
@@ -17,16 +21,16 @@ export async function GET(request: Request) {
 
   try {
     // Refresh materialized view
-    await supabase.rpc("refresh_room_engagement");
+    await getSupabase().rpc("refresh_room_engagement");
 
     // Update denormalized counts on rooms table
-    const { data: engagement } = await supabase
+    const { data: engagement } = await getSupabase()
       .from("room_engagement")
       .select("room_id, active_count, invite_quota");
 
     if (engagement) {
       for (const row of engagement) {
-        await supabase
+        await getSupabase()
           .from("rooms")
           .update({
             active_member_count: row.active_count,
@@ -38,7 +42,7 @@ export async function GET(request: Request) {
     }
 
     // Update 24h message counts
-    await supabase.rpc("update_message_counts_24h");
+    await getSupabase().rpc("update_message_counts_24h");
 
     return NextResponse.json({ ok: true, rooms_updated: engagement?.length ?? 0 });
   } catch (error) {

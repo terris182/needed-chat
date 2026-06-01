@@ -7,10 +7,15 @@ function getStripe() {
   if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   return _stripe;
 }
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _supabase: any = null;
+function getSupabase() {
+  if (!_supabase) _supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  return _supabase;
+}
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -30,7 +35,7 @@ export async function POST(request: Request) {
       const plan = session.metadata?.plan as "plus" | "host";
 
       if (userId && plan) {
-        await supabase.from("subscriptions").upsert({
+        await getSupabase().from("subscriptions").upsert({
           user_id: userId,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
@@ -39,7 +44,7 @@ export async function POST(request: Request) {
           current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         });
 
-        await supabase
+        await getSupabase()
           .from("users_profile")
           .update({ subscription_tier: plan })
           .eq("id", userId);
@@ -50,7 +55,7 @@ export async function POST(request: Request) {
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
-      const { data: sub } = await supabase
+      const { data: sub } = await getSupabase()
         .from("subscriptions")
         .select("user_id")
         .eq("stripe_subscription_id", subscription.id)
@@ -58,7 +63,7 @@ export async function POST(request: Request) {
 
       if (sub) {
         const isActive = subscription.status === "active";
-        await supabase
+        await getSupabase()
           .from("subscriptions")
           .update({
             status: subscription.status,
@@ -67,7 +72,7 @@ export async function POST(request: Request) {
           .eq("stripe_subscription_id", subscription.id);
 
         if (!isActive) {
-          await supabase
+          await getSupabase()
             .from("users_profile")
             .update({ subscription_tier: "free" })
             .eq("id", sub.user_id);

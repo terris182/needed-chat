@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getOpenAI } from "@/lib/openai";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let _supabase: any = null;
+function getSupabase() {
+  if (!_supabase) _supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  return _supabase;
+}
 
 // Vercel Cron: runs every 6 hours
 // vercel.json: { "crons": [{ "path": "/api/cron/invite-fit-users", "schedule": "0 */6 * * *" }] }
@@ -17,7 +21,7 @@ export async function GET(request: Request) {
 
   try {
     // Get active rooms with capacity
-    const { data: rooms } = await supabase
+    const { data: rooms } = await getSupabase()
       .from("rooms")
       .select("id, title, slug, embedding, ad_safety_rating, active_member_count, invite_quota")
       .in("status", ["active", "seeding"])
@@ -37,7 +41,7 @@ export async function GET(request: Request) {
 
       // Find users with recent needed_prompts that match this room
       // Exclude: already members, already invited (pending/declined in last 30 days), blackout active, matchmaking disabled
-      const { data: candidates } = await supabase.rpc("find_invite_candidates", {
+      const { data: candidates } = await getSupabase().rpc("find_invite_candidates", {
         target_room_id: room.id,
         room_embedding: room.embedding,
         match_threshold: 0.50,
@@ -70,7 +74,7 @@ export async function GET(request: Request) {
           // Use default reason
         }
 
-        await supabase.from("room_invites").upsert(
+        await getSupabase().from("room_invites").upsert(
           {
             room_id: room.id,
             user_id: candidate.user_id,

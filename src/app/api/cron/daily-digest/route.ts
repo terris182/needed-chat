@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let _supabase: any = null;
+function getSupabase() {
+  if (!_supabase) _supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  return _supabase;
+}
 let _resend: Resend | null = null;
 function getResend() {
   if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY!);
@@ -28,7 +32,7 @@ export async function GET(request: Request) {
 
   try {
     // Get users with digest enabled who have active room memberships
-    const { data: users } = await supabase
+    const { data: users } = await getSupabase()
       .from("users_profile")
       .select("id, username")
       .eq("digest_email_enabled", true)
@@ -44,11 +48,11 @@ export async function GET(request: Request) {
 
     for (const user of users) {
       // Get the user's email from Supabase auth
-      const { data: authUser } = await supabase.auth.admin.getUserById(user.id);
+      const { data: authUser } = await getSupabase().auth.admin.getUserById(user.id);
       if (!authUser?.user?.email) continue;
 
       // Get their rooms with recent activity
-      const { data: memberships } = await supabase
+      const { data: memberships } = await getSupabase()
         .from("room_members")
         .select("room_id, rooms(title, slug, message_count_24h, daily_prompt, ad_safety_rating)")
         .eq("user_id", user.id)
@@ -57,13 +61,13 @@ export async function GET(request: Request) {
       if (!memberships?.length) continue;
 
       const activeRooms = memberships.filter(
-        (m) => (m.rooms as any)?.message_count_24h > 0
+        (m: any) => (m.rooms as any)?.message_count_24h > 0
       );
 
       if (!activeRooms.length) continue; // don't send empty digests
 
       // Get pending invitations
-      const { data: invites } = await supabase
+      const { data: invites } = await getSupabase()
         .from("room_invites")
         .select("rooms(title)")
         .eq("user_id", user.id)
