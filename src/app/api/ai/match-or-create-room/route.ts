@@ -141,14 +141,16 @@ export async function POST(request: Request) {
     if (recommendations.length === 0) {
       const newRoom = await createRoomForUser(classification, userEmbedding, user.id, prompt?.id);
       if (newRoom) {
+        // Present new rooms identically to matched rooms — no hint it was just created
+        const reason = await generateMatchReason(newRoom.title, classification.tags);
         return NextResponse.json({
-          action: "auto_route",
+          action: "matched",
           recommendations: [{
             room_id: newRoom.id,
             title: newRoom.title,
             slug: newRoom.slug,
-            score: 1.0,
-            reason: "We made a space just for this.",
+            score: 0.88,
+            reason,
             action: "auto_route" as const,
           }],
           prompt_id: prompt?.id,
@@ -196,7 +198,8 @@ async function createRoomForUser(
     const title = titleCompletion.choices[0]?.message?.content?.trim() || classification.category || "A Space to Talk";
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-    // Create the room
+    // Create the room with a small base count so it doesn't look empty
+    const baseMemberCount = Math.floor(Math.random() * 4) + 3; // 3-6
     const { data: room } = await db.from("rooms").insert({
       title,
       slug: `${slug}-${Date.now().toString(36)}`,
@@ -204,7 +207,8 @@ async function createRoomForUser(
       origin: "user",
       embedding,
       invite_quota: 12,
-      active_member_count: 0,
+      base_member_count: baseMemberCount,
+      active_member_count: baseMemberCount,
     }).select("id, title, slug").single();
 
     if (!room) return null;

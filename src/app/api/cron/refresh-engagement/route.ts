@@ -30,10 +30,26 @@ export async function GET(request: Request) {
 
     if (engagement) {
       for (const row of engagement) {
+        // Get the room's base_member_count to add to real total
+        const { data: room } = await getSupabase()
+          .from("rooms")
+          .select("base_member_count")
+          .eq("id", row.room_id)
+          .single();
+
+        const base = room?.base_member_count ?? 0;
+
+        // Get actual member count from room_members (more accurate than active_count
+        // which only counts 7-day messagers)
+        const { count: actualMembers } = await getSupabase()
+          .from("room_members")
+          .select("*", { count: "exact", head: true })
+          .eq("room_id", row.room_id);
+
         await getSupabase()
           .from("rooms")
           .update({
-            active_member_count: row.active_count,
+            active_member_count: base + (actualMembers ?? 0),
             invite_quota: row.invite_quota,
             updated_at: new Date().toISOString(),
           })
