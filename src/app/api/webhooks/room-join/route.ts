@@ -21,7 +21,7 @@ function getOpenAI() {
 // Supabase Database Webhook — fires on INSERT to room_members
 export async function POST(request: Request) {
   const sig = request.headers.get("x-supabase-webhook-secret");
-  if (sig !== process.env.ROOM_JOIN_WEBHOOK_SECRET) {
+  if (sig !== (process.env.ROOM_JOIN_WEBHOOK_SECRET || "").trim()) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
