@@ -6,7 +6,7 @@ growth only; never paid ads, never AdSense. Linear issue: WHI-458.
 ## Environment / auth
 - Working clone: `/Users/whitley/needed-chat-whi458` (origin = github.com/terris182/needed-chat, branch `main`).
 - Vercel project = **needed-chat-deploy** (prj_h0GDqNeXWoMkYJdtKFXCSY4RhLjI) — this is the project that owns the needed.chat domain (NOT the project named "needed"). The clone's `.vercel` is already linked to it. If the clone is ever recreated, re-link: `vercel link --yes --project needed-chat-deploy --token="$VERCEL_TOKEN"`. Its Vercel env vars are fully configured (Supabase/OpenAI/Stripe/Resend/VAPID/CRON).
-- GitHub push has no PAT in the vault, so deploys go straight to Vercel from the local clone (`vercel deploy --prod`). The blog code is committed locally but NOT yet pushed to GitHub main — see WHI-458 open item.
+- GitHub push works over **SSH** (no PAT needed): origin is `git@github.com:terris182/needed-chat.git` and the Mac's `~/.ssh/id_ed25519` is authorized as terris182. So weekly batches should `git push origin HEAD:main` normally, then `vercel deploy --prod`.
 - Auth + env helper (reads creds from Whitley.xlsx, never echoes them):
   - `python3 /Users/whitley/tmp/whi458_setup.py` -> ensures clone + writes `/Users/whitley/tmp/whi458.env`.
   - `source /Users/whitley/tmp/whi458.env` exports `VERCEL_TOKEN` and `OPENAI_API_KEY`.
