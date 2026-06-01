@@ -29,9 +29,16 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to landing (except public routes)
+  // Redirect unauthenticated users to landing (except public routes).
+  // Public: landing, auth flows, and all marketing/SEO surfaces (blog + sitemap/robots).
+  const pathname = request.nextUrl.pathname;
   const publicPaths = ["/", "/auth", "/auth/callback", "/auth/confirm"];
-  const isPublic = publicPaths.some((p) => request.nextUrl.pathname === p);
+  const isPublic =
+    publicPaths.some((p) => pathname === p) ||
+    pathname === "/sitemap.xml" ||
+    pathname === "/robots.txt" ||
+    pathname === "/blog" ||
+    pathname.startsWith("/blog/");
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
