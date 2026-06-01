@@ -17,6 +17,8 @@ import { article as growingApartFromFriends } from "./growing-apart-from-friends
 import { article as feelingNumb } from "./feeling-numb";
 import { article as unseenInRelationship } from "./unseen-in-relationship";
 import { article as talkToSomeoneAt2am } from "./talk-to-someone-at-2am";
+import { article as worldCup2026 } from "./world-cup-2026-where-to-argue";
+import { article as needToTalkDontKnowWho } from "./need-to-talk-dont-know-who";
 
 export const articles: Article[] = [
   lonelyAtNight,
@@ -33,4 +35,6 @@ export const articles: Article[] = [
   feelingNumb,
   unseenInRelationship,
   talkToSomeoneAt2am,
+  worldCup2026,
+  needToTalkDontKnowWho,
 ];
