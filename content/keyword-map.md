@@ -18,7 +18,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 ## Cluster: Friendship & feeling left behind
 - feeling left behind by friends — live (left-behind-by-friends)
 - what to do when your friends stop inviting you — queued
-- how to deal with growing apart from friends — queued
+- how to deal with growing apart from friends — live (growing-apart-from-friends)
 - feeling like a burden to my friends — queued
 - how to make friends as an adult when it feels impossible — queued
 
@@ -40,7 +40,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 - what to say when someone asks how are you and you're not okay — live (im-not-okay)
 - how to tell someone you're struggling without making it a big deal — queued
 - how to ask for support when you hate being a bother — queued
-- what to do when you feel numb and nothing matters — queued
+- what to do when you feel numb and nothing matters — live (feeling-numb)
 - how to talk about feelings when you were raised not to — queued
 
 ## Cluster: Burnout & overwhelm
@@ -51,12 +51,12 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 
 ## Cluster: Relationships & conflict
 - how to cope after a fight with someone you love — queued
-- feeling unseen in a relationship — queued
+- feeling unseen in a relationship — live (unseen-in-relationship)
 - how to deal with feeling rejected — queued
 - what to do when you feel taken for granted — queued
 
 ## Cluster: Late-night / 3am intent (high emotional charge, gentle)
-- who can i talk to at 2am when i can't sleep — queued
+- who can i talk to at 2am when i can't sleep — live (talk-to-someone-at-2am)
 - is there anyone to talk to right now anonymously — queued
 - free anonymous place to talk about feelings — queued
 - somewhere to vent without being judged — queued

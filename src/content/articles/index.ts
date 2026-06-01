@@ -13,6 +13,10 @@ import { article as lonelyInACrowd } from "./lonely-in-a-crowd";
 import { article as grievingWhileFunctioning } from "./grieving-while-functioning";
 import { article as cantStopOverthinking } from "./cant-stop-overthinking";
 import { article as everythingTooMuch } from "./everything-too-much";
+import { article as growingApartFromFriends } from "./growing-apart-from-friends";
+import { article as feelingNumb } from "./feeling-numb";
+import { article as unseenInRelationship } from "./unseen-in-relationship";
+import { article as talkToSomeoneAt2am } from "./talk-to-someone-at-2am";
 
 export const articles: Article[] = [
   lonelyAtNight,
@@ -25,4 +29,8 @@ export const articles: Article[] = [
   grievingWhileFunctioning,
   cantStopOverthinking,
   everythingTooMuch,
+  growingApartFromFriends,
+  feelingNumb,
+  unseenInRelationship,
+  talkToSomeoneAt2am,
 ];
