@@ -41,26 +41,35 @@ export async function POST(request: Request) {
   }
 
   const { data: room } = await getSupabase()
-    .from("rooms").select("id, title, status").eq("id", record.room_id).single();
+    .from("rooms").select("id, title, status, daily_prompt").eq("id", record.room_id).single();
 
   if (!room || !["active", "seeding"].includes(room.status)) {
     return NextResponse.json({ ok: true, skipped: "room inactive" });
   }
 
+  // Use daily_prompt as icebreaker context (set when user joins via recommendations page)
+  const roomIcebreaker = icebreakerQuestion || room.daily_prompt || null;
+
   const { data: messages } = await getSupabase()
     .from("messages").select("user_id, body").eq("room_id", room.id)
     .order("created_at", { ascending: false }).limit(8);
 
-  if (!messages?.length) {
-    await seedWithTwoBots(room, botIds, icebreakerQuestion);
+  // Filter out non-bot messages to find the user's answer
+  const userMessages = messages?.filter((m: any) => !botIds.includes(m.user_id)) || [];
+  const userAnswer = userMessages.length > 0 ? userMessages[0].body : null;
+
+  if (!messages?.length || (messages.length <= 1 && userMessages.length === 1)) {
+    // Room is empty or only has the user's icebreaker answer — seed bots who also answer the icebreaker
+    await seedWithTwoBots(room, botIds, roomIcebreaker, userAnswer);
   } else {
-    await continueConvo(room, messages, botIds, icebreakerQuestion);
+    // Room has conversation — bot responds to the latest
+    await continueConvo(room, messages, botIds, roomIcebreaker);
   }
 
   return NextResponse.json({ ok: true });
 }
 
-async function seedWithTwoBots(room: any, botIds: string[], icebreakerQuestion?: string | null) {
+async function seedWithTwoBots(room: any, botIds: string[], icebreakerQuestion?: string | null, userAnswer?: string | null) {
   const bot1 = randomBot();
   const bot2 = randomBot(bot1?.id);
   if (!bot1 || !bot2) return;
@@ -71,13 +80,14 @@ async function seedWithTwoBots(room: any, botIds: string[], icebreakerQuestion?:
     { onConflict: "room_id,user_id" }
   );
 
-  const icebreakerContext = icebreakerQuestion
-    ? `\n\nToday's icebreaker question is: "${icebreakerQuestion}" — weave your response around this naturally, but don't quote it directly.`
-    : "";
+  const questionContext = icebreakerQuestion
+    ? `The room's icebreaker question is: "${icebreakerQuestion}". Answer it honestly and personally — like everyone else in the room did.`
+    : `Write one short opening message about something real you're carrying related to "${room.title}".`;
 
+  // Bot 1 answers the icebreaker
   const r1 = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
-    messages: [{ role: "system", content: `${bot1.voice}\n\nYou just entered an anonymous peer support room called "${room.title}". Write one short opening message about something real you're carrying. No names, no greetings.${icebreakerContext}` }],
+    messages: [{ role: "system", content: `${bot1.voice}\n\nYou're in an anonymous peer support room called "${room.title}". ${questionContext} No names, no greetings, no quoting the question. Just your honest answer.` }],
   });
   const body1 = r1.choices[0]?.message?.content?.trim();
   if (!body1) return;
@@ -85,12 +95,23 @@ async function seedWithTwoBots(room: any, botIds: string[], icebreakerQuestion?:
 
   await new Promise((r) => setTimeout(r, 1500));
 
+  // Bot 2: if user already answered, respond to the user's answer. Otherwise answer the icebreaker too.
+  const bot2Messages: Array<{ role: "system" | "user"; content: string }> = [];
+  if (userAnswer) {
+    bot2Messages.push(
+      { role: "system", content: `${bot2.voice}\n\nYou're in an anonymous peer support room called "${room.title}". Someone just shared their answer to the room's question. Respond warmly to what they said — relate to it, share something of your own. No greetings.` },
+      { role: "user", content: `${bot1.displayName} said: ${body1}\n\nSomeone new said: ${userAnswer}` },
+    );
+  } else {
+    bot2Messages.push(
+      { role: "system", content: `${bot2.voice}\n\nYou're in an anonymous peer support room called "${room.title}". ${questionContext} No names, no greetings. Just your honest answer, different from what was already shared.` },
+      { role: "user", content: `Someone else answered: ${body1}` },
+    );
+  }
+
   const r2 = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
-    messages: [
-      { role: "system", content: `${bot2.voice}\n\nYou're in an anonymous peer support room called "${room.title}". Respond to what was just shared. No greetings.` },
-      { role: "user", content: body1 },
-    ],
+    messages: bot2Messages,
   });
   const body2 = r2.choices[0]?.message?.content?.trim();
   if (!body2) return;
