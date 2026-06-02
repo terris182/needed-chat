@@ -18,7 +18,7 @@ function getOpenAI() {
   return _openai;
 }
 
-const REPLY_CHANCE = 0.92;         // High chance to reply — user should rarely feel ghosted
+const REPLY_CHANCE = 1.0;          // Always attempt reply — other guards prevent piling on
 const MIN_BOT_GAP_MS = 8 * 1000;  // At least 8s between bot messages
 
 // Called by the client after a user sends a message
