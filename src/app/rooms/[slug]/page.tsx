@@ -39,6 +39,9 @@ export default function RoomPage() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const lastUserActivityRef = useRef<string>(new Date().toISOString());
+  const botLoopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const botPaceRef = useRef<"active" | "slow" | "stopped">("active");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -112,6 +115,50 @@ export default function RoomPage() {
     };
   }, [room, supabase]);
 
+  // Bot conversation loop — keeps bots chatting at a natural pace
+  useEffect(() => {
+    if (!room) return;
+    const roomId = room.id;
+
+    function scheduleBotContinue() {
+      if (botPaceRef.current === "stopped") return;
+
+      // Randomize interval based on pace
+      const baseMs = botPaceRef.current === "slow" ? 35000 : 18000;
+      const jitter = Math.random() * (botPaceRef.current === "slow" ? 15000 : 10000);
+      const intervalMs = baseMs + jitter;
+
+      botLoopRef.current = setTimeout(async () => {
+        try {
+          const res = await fetch("/api/ai/bot-continue", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              room_id: roomId,
+              last_user_message_at: lastUserActivityRef.current,
+            }),
+          });
+          const data = await res.json();
+          botPaceRef.current = data.pace || "active";
+        } catch {
+          // Network error — keep going
+        }
+        // Schedule next iteration (unless stopped)
+        if (botPaceRef.current !== "stopped") {
+          scheduleBotContinue();
+        }
+      }, intervalMs);
+    }
+
+    // Start the loop after a short initial delay
+    const startDelay = setTimeout(() => scheduleBotContinue(), 8000);
+
+    return () => {
+      clearTimeout(startDelay);
+      if (botLoopRef.current) clearTimeout(botLoopRef.current);
+    };
+  }, [room]);
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     if (!newMessage.trim() || !room || !userId || sending) return;
@@ -119,6 +166,38 @@ export default function RoomPage() {
     setSending(true);
     const body = newMessage.trim();
     setNewMessage("");
+
+    // Track user activity — resets bot pace to active
+    lastUserActivityRef.current = new Date().toISOString();
+    if (botPaceRef.current === "stopped") {
+      botPaceRef.current = "active";
+      // Restart bot loop if it had stopped
+      if (!botLoopRef.current) {
+        const restartLoop = () => {
+          if (botPaceRef.current === "stopped") return;
+          const baseMs = botPaceRef.current === "slow" ? 35000 : 18000;
+          const jitter = Math.random() * (botPaceRef.current === "slow" ? 15000 : 10000);
+          botLoopRef.current = setTimeout(async () => {
+            try {
+              const res = await fetch("/api/ai/bot-continue", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  room_id: room.id,
+                  last_user_message_at: lastUserActivityRef.current,
+                }),
+              });
+              const data = await res.json();
+              botPaceRef.current = data.pace || "active";
+            } catch {}
+            if (botPaceRef.current !== "stopped") restartLoop();
+          }, baseMs + jitter);
+        };
+        restartLoop();
+      }
+    } else {
+      botPaceRef.current = "active";
+    }
 
     if (room.ad_safety_rating !== "green") {
       // YELLOW/RED: pre-publish moderation

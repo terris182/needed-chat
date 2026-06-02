@@ -93,7 +93,7 @@ async function seedWithThreeBots(
   if (!body1) return;
   await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[0].id, body: body1, message_type: "user", moderation_status: "safe" });
 
-  await new Promise((r) => setTimeout(r, 1500));
+  await new Promise((r) => setTimeout(r, 600));
 
   // Bot 2: answers the same icebreaker, lightly acknowledges bot 1 if it relates
   const r2 = await getOpenAI().chat.completions.create({
@@ -107,7 +107,7 @@ async function seedWithThreeBots(
   if (!body2) return;
   await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[1].id, body: body2, message_type: "user", moderation_status: "safe" });
 
-  await new Promise((r) => setTimeout(r, 2000));
+  await new Promise((r) => setTimeout(r, 800));
 
   // Bot 3: answers the icebreaker, can lightly reference what others said
   const r3 = await getOpenAI().chat.completions.create({

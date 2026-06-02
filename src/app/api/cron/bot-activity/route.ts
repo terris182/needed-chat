@@ -18,8 +18,8 @@ function getOpenAI() {
   return _openai;
 }
 
-const BOT_MESSAGES_PER_ROOM_PER_DAY = 3;
-const MIN_SILENCE_HOURS = 3;
+const BOT_MESSAGES_PER_ROOM_PER_DAY = 4;
+const MIN_SILENCE_HOURS = 4;
 
 // Vercel Cron: every 3 hours
 // vercel.json: { "path": "/api/cron/bot-activity", "schedule": "0 */3 * * *" }

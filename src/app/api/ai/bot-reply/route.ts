@@ -18,8 +18,11 @@ function getOpenAI() {
   return _openai;
 }
 
+const REPLY_CHANCE = 0.55;        // Don't reply to every message — give space
+const MIN_BOT_GAP_MS = 15 * 1000; // At least 15s between bot messages
+
 // Called by the client after a user sends a message
-// A bot responds if conditions are right
+// A bot responds if conditions are right — with pacing to feel natural
 export async function POST(request: Request) {
   const { room_id, user_id } = await request.json();
   if (!room_id || !user_id) {
@@ -34,6 +37,11 @@ export async function POST(request: Request) {
   // Don't reply to bots
   if (botIds.includes(user_id)) {
     return NextResponse.json({ ok: true, skipped: "bot message" });
+  }
+
+  // Pacing: skip some replies so bots don't dominate
+  if (Math.random() > REPLY_CHANCE) {
+    return NextResponse.json({ ok: true, skipped: "pacing skip" });
   }
 
   const { data: room } = await getSupabase()
@@ -64,7 +72,16 @@ export async function POST(request: Request) {
     if (botAlreadyReplied) return NextResponse.json({ ok: true, skipped: "bot already replied" });
   }
 
-  // Rate limit: max 6 bot messages per room per day
+  // Min gap: don't post if a bot posted very recently
+  const lastBotMsg = recentMsgs.find((m: any) => botIds.includes(m.user_id));
+  if (lastBotMsg) {
+    const gap = Date.now() - new Date(lastBotMsg.created_at).getTime();
+    if (gap < MIN_BOT_GAP_MS) {
+      return NextResponse.json({ ok: true, skipped: "too soon" });
+    }
+  }
+
+  // Rate limit: max 8 bot messages per room per day
   const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const { count: botMsgCount } = await getSupabase()
     .from("messages")
@@ -73,7 +90,7 @@ export async function POST(request: Request) {
     .in("user_id", botIds)
     .gte("created_at", dayAgo);
 
-  if ((botMsgCount || 0) >= 6) return NextResponse.json({ ok: true, skipped: "daily limit" });
+  if ((botMsgCount || 0) >= 8) return NextResponse.json({ ok: true, skipped: "daily limit" });
 
   // Pick a bot that didn't send the last message
   const lastMsg = recentMsgs[0];
@@ -93,8 +110,8 @@ export async function POST(request: Request) {
     .map((m: any) => `someone: ${m.body}`)
     .join("\n");
 
-  // Small delay to feel natural (1-3 seconds)
-  const delay = 1000 + Math.random() * 2000;
+  // Natural delay (3-7 seconds — feels like someone typing)
+  const delay = 3000 + Math.random() * 4000;
   await new Promise((r) => setTimeout(r, delay));
 
   const completion = await getOpenAI().chat.completions.create({
