@@ -19,6 +19,12 @@ import { article as unseenInRelationship } from "./unseen-in-relationship";
 import { article as talkToSomeoneAt2am } from "./talk-to-someone-at-2am";
 import { article as worldCup2026 } from "./world-cup-2026-where-to-argue";
 import { article as needToTalkDontKnowWho } from "./need-to-talk-dont-know-who";
+import { article as swiftWeddingBear } from "./swift-wedding-bear-everything";
+import { article as prideMonthConversations } from "./pride-month-conversations";
+import { article as worldCupPredictionsWrong } from "./world-cup-predictions-wrong";
+import { article as burnoutSummer } from "./burnout-doesnt-take-summer-off";
+import { article as avatarSummerShows } from "./avatar-is-back-summer-shows";
+import { article as notOnlyOneAwake } from "./not-only-one-awake-3am";
 
 export const articles: Article[] = [
   lonelyAtNight,
@@ -37,4 +43,10 @@ export const articles: Article[] = [
   talkToSomeoneAt2am,
   worldCup2026,
   needToTalkDontKnowWho,
+  swiftWeddingBear,
+  prideMonthConversations,
+  worldCupPredictionsWrong,
+  burnoutSummer,
+  avatarSummerShows,
+  notOnlyOneAwake,
 ];
