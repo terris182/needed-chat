@@ -30,14 +30,28 @@ export async function POST(request: Request) {
     daily_prompt_updated_at: new Date().toISOString(),
   }).eq("id", room_id);
 
-  // 2. Post user's answer
-  await db.from("messages").insert({
+  // 2. Post user's answer (mark safe initially, moderate async)
+  const { data: msg } = await db.from("messages").insert({
     room_id,
     user_id: user.id,
     body: answer.trim(),
     message_type: "user",
     moderation_status: "safe",
-  });
+  }).select("id").single();
+
+  // Async moderation — fire-and-forget
+  if (msg) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://needed.chat";
+    fetch(`${appUrl}/api/ai/moderate-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message_id: msg.id,
+        body: answer.trim(),
+        room_ad_safety_rating: "green",
+      }),
+    }).catch(() => {});
+  }
 
   // 3. Create membership
   await db.from("room_members").upsert(
