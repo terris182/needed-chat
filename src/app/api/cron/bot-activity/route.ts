@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   // Get rooms with human activity in last 7 days
   const { data: rooms } = await getSupabase()
     .from("rooms")
-    .select("id, title, slug")
+    .select("id, title, slug, daily_prompt")
     .in("status", ["active", "seeding"])
     .limit(20);
 
@@ -104,7 +104,7 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in "${room.title}". It's been quiet. Drop a new piece of YOUR story — something that's been on your mind. CRITICAL: Max 1-2 sentences, under 25 words. Like a text to a friend. No greetings, no names, no questions.`,
+          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""} It's been quiet. Drop a new piece of YOUR story — something that's been on your mind, related to the room topic. CRITICAL: Max 1-2 sentences, under 25 words. Like a text to a friend. No greetings, no names, no questions.`,
         },
         {
           role: "user",

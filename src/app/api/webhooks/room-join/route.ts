@@ -133,7 +133,8 @@ async function continueConvo(room: any, messages: any[], botIds: string[], icebr
   );
 
   const context = messages.slice(0, 5).reverse().map((m: any) => `someone: ${m.body}`).join("\n");
-  const systemPrompt = `${bot.voice}\n\nYou're in "${room.title}". Someone just shared. Let it trigger YOUR moment — one specific detail from your life that rhymes with theirs. CRITICAL: Max 1-2 sentences, under 25 words. Like a text message. No greetings, no names, no questions.`;
+  const iceContext = icebreakerQuestion ? ` The room's icebreaker is: "${icebreakerQuestion}".` : (room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : "");
+  const systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${iceContext} Someone just shared. Let it trigger YOUR moment — one specific detail from your life that rhymes with theirs. CRITICAL: Max 1-2 sentences, under 25 words. Like a text message. No greetings, no names, no questions.`;
 
   const r1 = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini", max_tokens: 60, temperature: 0.85,
