@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-function VennLogo({ className }: { className?: string }) {
+function ChatLogo({ className }: { className?: string }) {
   return (
     <svg
       width="56"
@@ -12,15 +12,8 @@ function VennLogo({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <rect width="56" height="56" rx="14" fill="currentColor" />
-      {/* Left circle */}
-      <circle cx="24" cy="28" r="15" fill="white" />
-      {/* Right circle */}
-      <circle cx="32" cy="28" r="15" fill="white" />
-      {/* Intersection — re-filled with accent */}
-      <clipPath id="left-clip">
-        <circle cx="24" cy="28" r="15" />
-      </clipPath>
-      <circle cx="32" cy="28" r="15" fill="currentColor" clipPath="url(#left-clip)" />
+      <rect x="14" y="11" width="28" height="20" rx="4" fill="white" />
+      <polygon points="16,29 12,38 24,29" fill="white" />
     </svg>
   );
 }
@@ -31,7 +24,7 @@ export default function LandingPage() {
       <div className="max-w-sm mx-auto space-y-8">
         {/* Logo + wordmark */}
         <div className="flex flex-col items-center gap-3">
-          <VennLogo className="text-accent" />
+          <ChatLogo className="text-accent" />
           <h1 className="text-2xl font-bold text-text-primary tracking-tight">needed.chat</h1>
           <p className="text-text-secondary text-sm">
             What have you needed to talk about?
