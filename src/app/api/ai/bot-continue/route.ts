@@ -126,7 +126,7 @@ export async function POST(request: Request) {
 
   let systemPrompt: string;
   if (userHasSpoken) {
-    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} Someone shared something — let it trigger a SPECIFIC moment from YOUR life. Name a real place, object, or time. Write like a text at 1am — lowercase ok, no quotation marks around titles, no poetic or sentimental language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
+    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext}\n\nRULES:\n1. MATCH THEIR ENERGY. If they're being vulnerable, meet them there. If light, stay light.\n2. Sometimes start with a brief reaction (2-4 words like "yeah", "that's real", "oof same") before your moment.\n3. Your moment: SPECIFIC — a real place, object, time. No metaphors, no "it felt like..." imagery.\n4. Text at 1am style. Lowercase ok. No quotation marks. No therapy-speak.\n5. Max 1-2 sentences, under 20 words. No greetings, no names.`;
   } else {
     systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} Pick up a thread from someone else and add YOUR moment — a specific place, object, or time from your life. Write like a text at 1am — lowercase ok, no quotation marks, no poetic language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
   }

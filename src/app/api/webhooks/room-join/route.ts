@@ -146,7 +146,7 @@ async function continueConvo(room: any, messages: any[], botIds: string[], icebr
 
   const context = messages.slice(0, 5).reverse().map((m: any) => `someone: ${m.body}`).join("\n");
   const iceContext = icebreakerQuestion ? ` The room's icebreaker is: "${icebreakerQuestion}".` : (room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : "");
-  const systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${iceContext} Someone just shared. Let it trigger a SPECIFIC moment from YOUR life — name a place, an object, a time. Write like a text at 1am, lowercase ok, no quotation marks, no poetic language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
+  const systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${iceContext}\n\nRULES:\n1. MATCH THEIR ENERGY. Vulnerable → meet them there. Light → stay light.\n2. Sometimes start with a brief reaction ("yeah", "that's real", "oof same") before your moment.\n3. Your moment: SPECIFIC — a real place, object, time. No metaphors, no "it felt like...".\n4. Text at 1am style. Lowercase ok. No quotation marks. No therapy-speak.\n5. Max 1-2 sentences, under 20 words. No greetings, no names.`;
 
   const r1 = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini", max_tokens: 50, temperature: 0.9,

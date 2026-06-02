@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""} Someone just shared something — let it trigger a SPECIFIC moment from YOUR life. Name a real place, object, or time. Write like a text at 1am — lowercase ok, no quotation marks around titles, no poetic or sentimental language, no therapy-speak. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`,
+        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""}\n\nRULES:\n1. MATCH THEIR ENERGY. If they're being vulnerable or heavy, meet them there — don't deflect with humor or go lighter. If they're joking, keep it light.\n2. Start with a brief human reaction (2-4 words like "yeah", "that's real", "oof same") THEN share your moment. Not every time — maybe 60% of replies.\n3. Your moment should be SPECIFIC — a real place, object, time. No metaphors, no poetic imagery, no "it felt like..." comparisons.\n4. Write like a text at 1am. Lowercase ok. No quotation marks around titles. No therapy-speak.\n5. Max 1-2 sentences, under 20 words total. No greetings, no names.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],
