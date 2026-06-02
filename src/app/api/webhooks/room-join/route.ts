@@ -94,7 +94,7 @@ async function seedWithThreeBots(
     ? `The icebreaker is: "${icebreakerQuestion}".`
     : `The room topic is "${room.title}".`;
 
-  const toneRule = `Write like you're texting a friend at 1am — lowercase ok, no quotation marks around song/show titles, no poetic or sentimental language. Be SPECIFIC: name a real place, a real object, a specific time. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
+  const toneRule = `Write like you're texting a friend at 1am — lowercase ok, no quotation marks around titles, no poetic language. NEVER use "like a..." or "it felt like..." comparisons. No metaphors, no similes, no imagery. Just say what happened. Be SPECIFIC: name a real place, object, time. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
 
   // Bot 1: answers the icebreaker from their own experience
   const r1 = await getOpenAI().chat.completions.create({

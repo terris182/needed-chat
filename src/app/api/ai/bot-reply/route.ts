@@ -18,7 +18,7 @@ function getOpenAI() {
   return _openai;
 }
 
-const REPLY_CHANCE = 0.8;          // High chance to reply — keep the story going
+const REPLY_CHANCE = 0.92;         // High chance to reply — user should rarely feel ghosted
 const MIN_BOT_GAP_MS = 8 * 1000;  // At least 8s between bot messages
 
 // Called by the client after a user sends a message
@@ -37,11 +37,6 @@ export async function POST(request: Request) {
   // Don't reply to bots
   if (botIds.includes(user_id)) {
     return NextResponse.json({ ok: true, skipped: "bot message" });
-  }
-
-  // Pacing: skip some replies so bots don't dominate
-  if (Math.random() > REPLY_CHANCE) {
-    return NextResponse.json({ ok: true, skipped: "pacing skip" });
   }
 
   const { data: room } = await getSupabase()
@@ -63,6 +58,19 @@ export async function POST(request: Request) {
     .limit(10);
 
   if (!recentMsgs?.length) return NextResponse.json({ ok: true, skipped: "no messages" });
+
+  // Count consecutive unreplied user messages — if 2+, always reply (don't ghost)
+  let unrepliedCount = 0;
+  for (const m of recentMsgs) {
+    if (botIds.includes(m.user_id)) break;
+    unrepliedCount++;
+  }
+  const mustReply = unrepliedCount >= 2;
+
+  // Pacing: skip some replies so bots don't dominate (unless user is being ghosted)
+  if (!mustReply && Math.random() > REPLY_CHANCE) {
+    return NextResponse.json({ ok: true, skipped: "pacing skip" });
+  }
 
   // Don't pile on — skip if a bot already replied to the last user message
   const lastUserMsgIdx = recentMsgs.findIndex((m: any) => !botIds.includes(m.user_id));
