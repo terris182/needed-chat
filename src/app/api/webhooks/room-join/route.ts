@@ -18,6 +18,16 @@ function getOpenAI() {
   return _openai;
 }
 
+// Clean bot output: remove em-dash starts, trim incomplete trailing sentences
+function cleanBotMessage(raw: string): string {
+  let body = raw.trim().replace(/^[—–-]+\s*/, "");
+  if (body.length > 0 && !body.match(/[.!?…"']$/)) {
+    const lastSentence = body.match(/^.*[.!?…"']/);
+    if (lastSentence) body = lastSentence[0];
+  }
+  return body;
+}
+
 // Supabase Database Webhook — fires on INSERT to room_members
 export async function POST(request: Request) {
   const sig = request.headers.get("x-supabase-webhook-secret");
@@ -89,7 +99,7 @@ async function seedWithThreeBots(
     model: "gpt-4o-mini", max_tokens: 60, temperature: 0.9,
     messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext} CRITICAL: Write like a text message, not a novel. Max 1-2 sentences, under 25 words. One vivid freeze-frame from your life. No greetings, no names, no quoting the question.` }],
   });
-  const body1 = r1.choices[0]?.message?.content?.trim();
+  const body1 = cleanBotMessage(r1.choices[0]?.message?.content || "");
   if (!body1) return;
   await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[0].id, body: body1, message_type: "user", moderation_status: "safe" });
 
@@ -103,7 +113,7 @@ async function seedWithThreeBots(
       { role: "user", content: `Someone else in the room said: ${body1}` },
     ],
   });
-  const body2 = r2.choices[0]?.message?.content?.trim();
+  const body2 = cleanBotMessage(r2.choices[0]?.message?.content || "");
   if (!body2) return;
   await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[1].id, body: body2, message_type: "user", moderation_status: "safe" });
 
@@ -117,7 +127,7 @@ async function seedWithThreeBots(
       { role: "user", content: `Others in the room said:\n- ${body1}\n- ${body2}` },
     ],
   });
-  const body3 = r3.choices[0]?.message?.content?.trim();
+  const body3 = cleanBotMessage(r3.choices[0]?.message?.content || "");
   if (!body3) return;
   await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[2].id, body: body3, message_type: "user", moderation_status: "safe" });
 }
@@ -143,7 +153,7 @@ async function continueConvo(room: any, messages: any[], botIds: string[], icebr
       { role: "user", content: `Recent:\n${context}` },
     ],
   });
-  const body1 = r1.choices[0]?.message?.content?.trim();
-  if (!body1) return;
-  await getSupabase().from("messages").insert({ room_id: room.id, user_id: bot.id, body: body1, message_type: "user", moderation_status: "safe" });
+  const contBody = cleanBotMessage(r1.choices[0]?.message?.content || "");
+  if (!contBody) return;
+  await getSupabase().from("messages").insert({ room_id: room.id, user_id: bot.id, body: contBody, message_type: "user", moderation_status: "safe" });
 }

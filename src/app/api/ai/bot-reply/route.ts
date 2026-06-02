@@ -127,8 +127,16 @@ export async function POST(request: Request) {
     ],
   });
 
-  const body = completion.choices[0]?.message?.content?.trim();
+  let body = completion.choices[0]?.message?.content?.trim();
   if (!body) return NextResponse.json({ ok: true, skipped: "empty response" });
+
+  // Clean up: remove leading em-dashes and trailing incomplete sentences
+  body = body.replace(/^[—–-]+\s*/, "");
+  if (body.length > 0 && !body.match(/[.!?…"']$/)) {
+    const lastSentence = body.match(/^.*[.!?…"']/);
+    if (lastSentence) body = lastSentence[0];
+  }
+  if (!body) return NextResponse.json({ ok: true, skipped: "cleaned to empty" });
 
   await getSupabase().from("messages").insert({
     room_id: room.id,

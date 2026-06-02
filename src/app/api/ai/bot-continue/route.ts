@@ -22,8 +22,8 @@ const INACTIVITY_SLOW_MS = 2 * 60 * 1000;  // 2 min → slow pace
 const INACTIVITY_STOP_MS = 5 * 60 * 1000;  // 5 min → stop entirely
 const MIN_BOT_GAP_MS = 6 * 1000;           // min 6s between bot messages
 const MAX_BOT_MESSAGES_PER_HOUR = 30;
-const ACTIVE_REPLY_CHANCE = 0.75;
-const SLOW_REPLY_CHANCE = 0.3;
+const ACTIVE_REPLY_CHANCE = 0.85;
+const SLOW_REPLY_CHANCE = 0.35;
 
 // Called periodically by the client to keep bots chatting at a natural pace
 export async function POST(request: Request) {
@@ -141,8 +141,16 @@ export async function POST(request: Request) {
     ],
   });
 
-  const body = completion.choices[0]?.message?.content?.trim();
+  let body = completion.choices[0]?.message?.content?.trim();
   if (!body) return NextResponse.json({ pace, posted: false, reason: "empty response" });
+
+  // Clean up: remove leading em-dashes (broken continuations) and trailing incomplete sentences
+  body = body.replace(/^[—–-]+\s*/, "");
+  if (body.length > 0 && !body.match(/[.!?…"']$/)) {
+    const lastSentence = body.match(/^.*[.!?…"']/);
+    if (lastSentence) body = lastSentence[0];
+  }
+  if (!body) return NextResponse.json({ pace, posted: false, reason: "cleaned to empty" });
 
   await getSupabase().from("messages").insert({
     room_id: room.id,
