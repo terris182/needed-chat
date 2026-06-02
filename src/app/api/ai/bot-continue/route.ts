@@ -18,12 +18,12 @@ function getOpenAI() {
   return _openai;
 }
 
-const INACTIVITY_SLOW_MS = 90 * 1000;   // 1.5 min → slow pace
-const INACTIVITY_STOP_MS = 5 * 60 * 1000; // 5 min → stop entirely
-const MIN_BOT_GAP_MS = 12 * 1000;        // min 12s between bot messages
-const MAX_BOT_MESSAGES_PER_HOUR = 20;
-const ACTIVE_REPLY_CHANCE = 0.6;
-const SLOW_REPLY_CHANCE = 0.25;
+const INACTIVITY_SLOW_MS = 2 * 60 * 1000;  // 2 min → slow pace
+const INACTIVITY_STOP_MS = 5 * 60 * 1000;  // 5 min → stop entirely
+const MIN_BOT_GAP_MS = 6 * 1000;           // min 6s between bot messages
+const MAX_BOT_MESSAGES_PER_HOUR = 30;
+const ACTIVE_REPLY_CHANCE = 0.75;
+const SLOW_REPLY_CHANCE = 0.3;
 
 // Called periodically by the client to keep bots chatting at a natural pace
 export async function POST(request: Request) {
@@ -126,15 +126,15 @@ export async function POST(request: Request) {
 
   let systemPrompt: string;
   if (userHasSpoken) {
-    systemPrompt = `${bot.voice}\n\nYou're in an anonymous peer support chat room called "${room.title}".${icebreakerContext} Continue the conversation naturally. React to what others have shared — relate it to YOUR experience. Keep it real and conversational. Don't ask questions like a therapist. Don't greet anyone. 1-2 short sentences.`;
+    systemPrompt = `${bot.voice}\n\nYou're in an anonymous chat room called "${room.title}".${icebreakerContext} This is immersive storytelling through chat — like The Breakfast Club unfolding in real-time through messages. Someone just revealed something about their life. Let it spark a SCENE from yours — not a reaction, a scene. Put us there. What you saw, heard, felt. Your story should interlock with theirs like puzzle pieces from different boxes that somehow fit. Build the narrative — each message should make people want to read the next one. Be vivid, surprising, honest. No therapy-speak, no greetings, no names, no questions. 2-3 sentences that read like the best page in a novel.`;
   } else {
-    // Bots chatting among themselves before user engages
-    systemPrompt = `${bot.voice}\n\nYou're in an anonymous peer support chat room called "${room.title}".${icebreakerContext} A few people have been sharing. Add to the conversation with YOUR own experience or reaction. Riff on what's been said — agree, build on it, or share a related moment. Keep it natural, like friends talking. Don't ask questions. No greetings, no names. 1-2 short sentences.`;
+    // Bots chatting among themselves — building the world before user engages
+    systemPrompt = `${bot.voice}\n\nYou're in an anonymous chat room called "${room.title}".${icebreakerContext} This is immersive storytelling — a few strangers' stories are starting to collide, like the first act of a movie where you realize all these people are connected in ways they don't see yet. Pick up a thread from what someone else said and weave YOUR story into it. Tell a specific moment — not a summary. A scene. Drop a detail that makes people curious about what happened next. Your story should feel like it's ABOUT the same thing as theirs but from a completely different angle. No questions, no greetings, no names. 2-3 sentences that make this chat feel like turning pages.`;
   }
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 80,
+    max_tokens: 120,
     temperature: 0.85,
     messages: [
       { role: "system", content: systemPrompt },

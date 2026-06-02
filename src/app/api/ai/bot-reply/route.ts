@@ -18,8 +18,8 @@ function getOpenAI() {
   return _openai;
 }
 
-const REPLY_CHANCE = 0.55;        // Don't reply to every message — give space
-const MIN_BOT_GAP_MS = 15 * 1000; // At least 15s between bot messages
+const REPLY_CHANCE = 0.8;          // High chance to reply — keep the story going
+const MIN_BOT_GAP_MS = 8 * 1000;  // At least 8s between bot messages
 
 // Called by the client after a user sends a message
 // A bot responds if conditions are right — with pacing to feel natural
@@ -110,18 +110,18 @@ export async function POST(request: Request) {
     .map((m: any) => `someone: ${m.body}`)
     .join("\n");
 
-  // Natural delay (3-7 seconds — feels like someone typing)
-  const delay = 3000 + Math.random() * 4000;
+  // Quick typing delay (2-4 seconds)
+  const delay = 2000 + Math.random() * 2000;
   await new Promise((r) => setTimeout(r, delay));
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 80,
+    max_tokens: 120,
     temperature: 0.85,
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in an anonymous peer support chat room called "${room.title}". Someone just shared something. Share your own experience or reaction — focus on YOUR story first. If what they said connects to something you've been through, briefly acknowledge it then share your own thing. Don't ask questions. Don't be a therapist. Just be a person in the room sharing alongside them. No greetings, no names.`,
+        content: `${bot.voice}\n\nYou're in an anonymous chat room called "${room.title}". This is immersive storytelling through chat — think The Breakfast Club as a chat room. Someone just shared a piece of their story. React naturally — let their story remind you of a SPECIFIC moment from YOUR life. Tell it like a scene: where you were, what you noticed, how it felt. Don't summarize — put us IN the moment. Your story should riff off theirs like improv — their detail sparks your detail, and together the stories start weaving into something bigger. Be vivid, be real, be interesting to read. No therapy-speak, no greetings, no names, no questions. 2-3 sentences that pull the reader in.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

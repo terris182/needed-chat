@@ -124,8 +124,8 @@ export default function RoomPage() {
       if (botPaceRef.current === "stopped") return;
 
       // Randomize interval based on pace
-      const baseMs = botPaceRef.current === "slow" ? 35000 : 18000;
-      const jitter = Math.random() * (botPaceRef.current === "slow" ? 15000 : 10000);
+      const baseMs = botPaceRef.current === "slow" ? 25000 : 8000;
+      const jitter = Math.random() * (botPaceRef.current === "slow" ? 10000 : 7000);
       const intervalMs = baseMs + jitter;
 
       botLoopRef.current = setTimeout(async () => {
@@ -150,8 +150,8 @@ export default function RoomPage() {
       }, intervalMs);
     }
 
-    // Start the loop after a short initial delay
-    const startDelay = setTimeout(() => scheduleBotContinue(), 8000);
+    // Start the loop quickly so bots engage right away
+    const startDelay = setTimeout(() => scheduleBotContinue(), 2000);
 
     return () => {
       clearTimeout(startDelay);
@@ -175,8 +175,8 @@ export default function RoomPage() {
       if (!botLoopRef.current) {
         const restartLoop = () => {
           if (botPaceRef.current === "stopped") return;
-          const baseMs = botPaceRef.current === "slow" ? 35000 : 18000;
-          const jitter = Math.random() * (botPaceRef.current === "slow" ? 15000 : 10000);
+          const baseMs = botPaceRef.current === "slow" ? 25000 : 8000;
+          const jitter = Math.random() * (botPaceRef.current === "slow" ? 10000 : 7000);
           botLoopRef.current = setTimeout(async () => {
             try {
               const res = await fetch("/api/ai/bot-continue", {

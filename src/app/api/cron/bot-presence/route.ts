@@ -95,13 +95,13 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
   );
 
   const questionContext = room.daily_prompt
-    ? `The room's icebreaker question is: "${room.daily_prompt}". Answer it honestly from YOUR experience.`
-    : `Share one short, real thing you're carrying related to "${room.title}".`;
+    ? `The room's opening question is: "${room.daily_prompt}". Answer it with a vivid, specific scene from YOUR life — put us in the moment.`
+    : `Share a specific scene from your life related to "${room.title}" — where you were, what you noticed, how it felt.`;
 
   // Bot 1: answers the icebreaker
   const r1 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
-    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in an anonymous chat room called "${room.title}". ${questionContext} Focus on YOUR answer. No greetings, no names.` }],
+    model: "gpt-4o-mini", max_tokens: 120, temperature: 0.9,
+    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in an anonymous chat room called "${room.title}". This is immersive storytelling — the opening scene. ${questionContext} Tell it like a scene in a novel — specific, sensory, alive. No greetings, no names. 2-3 sentences that pull readers in.` }],
   });
   const body1 = r1.choices[0]?.message?.content?.trim();
   if (!body1) return;
@@ -111,9 +111,9 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
 
   // Bot 2: answers the same question, brief nod to bot 1 if it relates
   const r2 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
+    model: "gpt-4o-mini", max_tokens: 120, temperature: 0.9,
     messages: [
-      { role: "system", content: `${bots[1].voice}\n\nYou're in an anonymous chat room called "${room.title}". ${questionContext} Focus on YOUR answer first. If what someone else said connects, briefly acknowledge it then share YOUR thing. No questions, no therapizing. No greetings, no names.` },
+      { role: "system", content: `${bots[1].voice}\n\nYou're in an anonymous chat room called "${room.title}". This is immersive storytelling through chat. Someone just shared their opening scene. ${questionContext} Let their story spark YOUR scene — riff off their detail with your own. Make the stories interlock like improv. Vivid, specific, real. No greetings, no names, no questions. 2-3 sentences.` },
       { role: "user", content: `Someone else said: ${body1}` },
     ],
   });
@@ -126,9 +126,9 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
 
     // Bot 3: answers the icebreaker, can lightly reference others
     const r3 = await getOpenAI().chat.completions.create({
-      model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
+      model: "gpt-4o-mini", max_tokens: 120, temperature: 0.9,
       messages: [
-        { role: "system", content: `${bots[2].voice}\n\nYou're in an anonymous chat room called "${room.title}". ${questionContext} Focus on YOUR answer first. A couple others have shared. If their experiences resonate, a brief nod is fine, then share YOUR experience. No questions, no therapizing. No greetings, no names.` },
+        { role: "system", content: `${bots[2].voice}\n\nYou're in an anonymous chat room called "${room.title}". Two strangers have started revealing their stories. ${questionContext} Find the thread connecting all three of you and drop YOUR scene into the mix — the third panel in a triptych. Vivid, specific, real. No greetings, no names, no questions. 2-3 sentences.` },
         { role: "user", content: `Others said:\n- ${body1}\n- ${body2}` },
       ],
     });
@@ -157,12 +157,12 @@ async function continueExistingConvo(room: any, messages: any[], botIds: string[
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 70,
+    max_tokens: 120,
     temperature: 0.85,
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in an anonymous peer support chat room called "${room.title}". Continue the conversation naturally. Don't greet or introduce yourself — just respond to what's being talked about.`,
+        content: `${bot.voice}\n\nYou're in an anonymous chat room called "${room.title}". This is immersive storytelling through chat — strangers' stories weaving together in real-time. Pick up a thread from the conversation and add YOUR scene to the narrative. Tell a specific moment with cinematic detail. Make the reader want to know what happens next. No greetings, no names, no questions. 2-3 sentences.`,
       },
       { role: "user", content: `Recent conversation:\n${context}\n\nRespond as ${bot.displayName}:` },
     ],
