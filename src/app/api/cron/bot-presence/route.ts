@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
-import { getActivePersonas, randomBot } from "@/lib/bots/personas";
+import { getActivePersonas, randomBot, randomBots } from "@/lib/bots/personas";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -85,64 +85,58 @@ export async function GET(request: Request) {
 }
 
 async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
-  const bot1 = randomBot();
-  const bot2 = randomBot(bot1?.id);
-  if (!bot1 || !bot2) return;
+  const bots = randomBots(3);
+  if (bots.length < 2) return;
 
-  // Ensure both bots are members
+  // Ensure all bots are members
   await getSupabase().from("room_members").upsert(
-    [
-      { room_id: room.id, user_id: bot1.id, role: "member" },
-      { room_id: room.id, user_id: bot2.id, role: "member" },
-    ],
+    bots.map((b) => ({ room_id: room.id, user_id: b.id, role: "member" })),
     { onConflict: "room_id,user_id" }
   );
 
-  // Bot1 opens
-  const open = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini",
-    max_tokens: 70,
-    temperature: 0.9,
-    messages: [
-      {
-        role: "system",
-        content: `${bot1.voice}\n\nYou just entered an anonymous peer support chat room called "${room.title}". Write one short opening message — what you're carrying or thinking about related to the room topic. Be real, be specific, don't be generic. No names, no greetings.`,
-      },
-    ],
-  });
+  const questionContext = room.daily_prompt
+    ? `The room's icebreaker question is: "${room.daily_prompt}". Answer it honestly from YOUR experience.`
+    : `Share one short, real thing you're carrying related to "${room.title}".`;
 
-  const body1 = open.choices[0]?.message?.content?.trim();
+  // Bot 1: answers the icebreaker
+  const r1 = await getOpenAI().chat.completions.create({
+    model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
+    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in an anonymous chat room called "${room.title}". ${questionContext} Focus on YOUR answer. No greetings, no names.` }],
+  });
+  const body1 = r1.choices[0]?.message?.content?.trim();
   if (!body1) return;
+  await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[0].id, body: body1, message_type: "user", moderation_status: "safe" });
 
-  await getSupabase().from("messages").insert({
-    room_id: room.id, user_id: bot1.id, body: body1,
-    message_type: "user", moderation_status: "safe",
-  });
+  await new Promise((r) => setTimeout(r, 1500));
 
-  // Small delay between messages feels more natural
-  await new Promise((r) => setTimeout(r, 2000));
-
-  // Bot2 responds
-  const reply = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini",
-    max_tokens: 70,
-    temperature: 0.9,
+  // Bot 2: answers the same question, brief nod to bot 1 if it relates
+  const r2 = await getOpenAI().chat.completions.create({
+    model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
     messages: [
-      {
-        role: "system",
-        content: `${bot2.voice}\n\nYou're in an anonymous peer support chat room called "${room.title}". Respond to what was just shared. No names, no greetings.`,
-      },
-      { role: "user", content: body1 },
+      { role: "system", content: `${bots[1].voice}\n\nYou're in an anonymous chat room called "${room.title}". ${questionContext} Focus on YOUR answer first. If what someone else said connects, briefly acknowledge it then share YOUR thing. No questions, no therapizing. No greetings, no names.` },
+      { role: "user", content: `Someone else said: ${body1}` },
     ],
   });
-
-  const body2 = reply.choices[0]?.message?.content?.trim();
+  const body2 = r2.choices[0]?.message?.content?.trim();
   if (!body2) return;
+  await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[1].id, body: body2, message_type: "user", moderation_status: "safe" });
 
-  await getSupabase().from("messages").insert({
-    room_id: room.id, user_id: bot2.id, body: body2,
-    message_type: "user", moderation_status: "safe",
-  });
+  if (bots.length >= 3) {
+    await new Promise((r) => setTimeout(r, 2000));
+
+    // Bot 3: answers the icebreaker, can lightly reference others
+    const r3 = await getOpenAI().chat.completions.create({
+      model: "gpt-4o-mini", max_tokens: 70, temperature: 0.9,
+      messages: [
+        { role: "system", content: `${bots[2].voice}\n\nYou're in an anonymous chat room called "${room.title}". ${questionContext} Focus on YOUR answer first. A couple others have shared. If their experiences resonate, a brief nod is fine, then share YOUR experience. No questions, no therapizing. No greetings, no names.` },
+        { role: "user", content: `Others said:\n- ${body1}\n- ${body2}` },
+      ],
+    });
+    const body3 = r3.choices[0]?.message?.content?.trim();
+    if (body3) {
+      await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[2].id, body: body3, message_type: "user", moderation_status: "safe" });
+    }
+  }
 }
 
 async function continueExistingConvo(room: any, messages: any[], botIds: string[]) {

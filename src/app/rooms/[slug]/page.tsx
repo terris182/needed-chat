@@ -181,6 +181,13 @@ export default function RoomPage() {
       .eq("room_id", room.id)
       .eq("user_id", userId);
 
+    // Trigger bot reply (fire-and-forget)
+    fetch("/api/ai/bot-reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_id: room.id, user_id: userId }),
+    }).catch(() => {});
+
     setSending(false);
     inputRef.current?.focus();
   }
