@@ -104,7 +104,7 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""} It's been quiet. Drop something from YOUR life related to the room — a specific place, object, or time. Write like a text at 1am, lowercase ok, no quotation marks, no poetic language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`,
+          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""} It's been quiet. Drop something from YOUR life related to the room — a specific place, object, or time. NEVER use "like a...", "felt like...", "as if..." or any comparisons/similes. Write like a text at 1am, lowercase ok, no quotation marks. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`,
         },
         {
           role: "user",
