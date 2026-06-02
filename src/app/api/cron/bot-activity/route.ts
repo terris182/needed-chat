@@ -99,12 +99,12 @@ export async function GET(request: Request) {
     // Generate bot message
     const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
-      max_tokens: 120,
+      max_tokens: 60,
       temperature: 0.85,
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in an anonymous chat room called "${room.title}". This is immersive storytelling through chat. The conversation has been quiet. Drop back in with a new piece of YOUR story — something that's been on your mind, told like a scene. Vivid, specific, make the reader curious. No greetings, no names, no questions. 2-3 sentences that feel like opening a new chapter.`,
+          content: `${bot.voice}\n\nYou're in "${room.title}". It's been quiet. Drop a new piece of YOUR story — something that's been on your mind. CRITICAL: Max 1-2 sentences, under 25 words. Like a text to a friend. No greetings, no names, no questions.`,
         },
         {
           role: "user",

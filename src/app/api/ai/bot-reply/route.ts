@@ -116,12 +116,12 @@ export async function POST(request: Request) {
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 120,
+    max_tokens: 60,
     temperature: 0.85,
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in an anonymous chat room called "${room.title}". This is immersive storytelling through chat — think The Breakfast Club as a chat room. Someone just shared a piece of their story. React naturally — let their story remind you of a SPECIFIC moment from YOUR life. Tell it like a scene: where you were, what you noticed, how it felt. Don't summarize — put us IN the moment. Your story should riff off theirs like improv — their detail sparks your detail, and together the stories start weaving into something bigger. Be vivid, be real, be interesting to read. No therapy-speak, no greetings, no names, no questions. 2-3 sentences that pull the reader in.`,
+        content: `${bot.voice}\n\nYou're in "${room.title}". CRITICAL: You are a character in a living story told through chat bubbles. Someone just shared something — let it trigger a flash from YOUR life. One vivid detail that interlocks with theirs. Your stories are colliding like characters in a film who don't know they're in the same movie yet. Write like a TEXT MESSAGE, not a novel — max 1-2 short sentences, under 25 words total. No greetings, no names, no questions, no therapy-speak. Just one sharp, specific, human moment.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

@@ -126,15 +126,14 @@ export async function POST(request: Request) {
 
   let systemPrompt: string;
   if (userHasSpoken) {
-    systemPrompt = `${bot.voice}\n\nYou're in an anonymous chat room called "${room.title}".${icebreakerContext} This is immersive storytelling through chat — like The Breakfast Club unfolding in real-time through messages. Someone just revealed something about their life. Let it spark a SCENE from yours — not a reaction, a scene. Put us there. What you saw, heard, felt. Your story should interlock with theirs like puzzle pieces from different boxes that somehow fit. Build the narrative — each message should make people want to read the next one. Be vivid, surprising, honest. No therapy-speak, no greetings, no names, no questions. 2-3 sentences that read like the best page in a novel.`;
+    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} CRITICAL: You are a character in a living story told through chat. Someone shared something — let it trigger a flash from YOUR life. One vivid detail that interlocks with theirs like scenes from different movies that rhyme. You're all circling the same invisible theme without knowing it. Write like a TEXT MESSAGE — max 1-2 short sentences, under 25 words. No greetings, no names, no questions. Just one sharp moment.`;
   } else {
-    // Bots chatting among themselves — building the world before user engages
-    systemPrompt = `${bot.voice}\n\nYou're in an anonymous chat room called "${room.title}".${icebreakerContext} This is immersive storytelling — a few strangers' stories are starting to collide, like the first act of a movie where you realize all these people are connected in ways they don't see yet. Pick up a thread from what someone else said and weave YOUR story into it. Tell a specific moment — not a summary. A scene. Drop a detail that makes people curious about what happened next. Your story should feel like it's ABOUT the same thing as theirs but from a completely different angle. No questions, no greetings, no names. 2-3 sentences that make this chat feel like turning pages.`;
+    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} CRITICAL: You are characters building a world together before the audience arrives. Pick up a thread from someone else's story and add YOUR moment — the detail that makes people realize all these strangers are secretly in the same story. Write like a TEXT MESSAGE — max 1-2 short sentences, under 25 words. No greetings, no names, no questions. Drop one vivid detail that makes people curious.`;
   }
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 120,
+    max_tokens: 60,
     temperature: 0.85,
     messages: [
       { role: "system", content: systemPrompt },
