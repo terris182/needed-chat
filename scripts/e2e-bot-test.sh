@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-SUPABASE_URL="https://ydxyuzqaobortwsnirnp.supabase.co"
-SERVICE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkeHl1enFhb2JvcnR3c25pcm5wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTA0NzA4NCwiZXhwIjoyMDk0NjIzMDg0fQ.KQuT9qiDGQk81_ZGOGRCRjI0hhnegaSHsrMnlJrICMg"
-APP_URL="https://needed.chat"
-WEBHOOK_SECRET=""  # will read from env
-HEADERS="-H \"apikey: $SERVICE_KEY\" -H \"Authorization: Bearer $SERVICE_KEY\" -H \"Content-Type: application/json\""
+# Load from environment — never hardcode secrets
+SUPABASE_URL="${SUPABASE_URL:?Set SUPABASE_URL env var}"
+SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY env var}"
+APP_URL="${APP_URL:-https://needed.chat}"
+WEBHOOK_SECRET="${WEBHOOK_SECRET:-}"
 
 sb() {
   curl -s "$SUPABASE_URL/rest/v1/$1" \
