@@ -11,24 +11,50 @@ export default function Icon() {
           width: 32,
           height: 32,
           borderRadius: 8,
-          background: "#7C6EFF",
+          background: "#C66B3D",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
-        <svg
-          width="20"
-          height="18"
-          viewBox="0 0 20 18"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M2 2C2 1.45 2.45 1 3 1H17C17.55 1 18 1.45 18 2V12C18 12.55 17.55 13 17 13H7L3 17V13H3C2.45 13 2 12.55 2 12V2Z"
-            fill="white"
-          />
-        </svg>
+        {/* Left circle */}
+        <div
+          style={{
+            position: "absolute",
+            left: 2,
+            top: 4,
+            width: 22,
+            height: 24,
+            borderRadius: "50%",
+            background: "white",
+          }}
+        />
+        {/* Right circle */}
+        <div
+          style={{
+            position: "absolute",
+            right: 2,
+            top: 4,
+            width: 22,
+            height: 24,
+            borderRadius: "50%",
+            background: "white",
+          }}
+        />
+        {/* Intersection overlay */}
+        <div
+          style={{
+            position: "absolute",
+            left: 9,
+            top: 6,
+            width: 14,
+            height: 20,
+            borderRadius: "50%",
+            background: "#C66B3D",
+          }}
+        />
       </div>
     ),
     { ...size }
