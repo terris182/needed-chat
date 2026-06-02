@@ -126,14 +126,14 @@ export async function POST(request: Request) {
 
   let systemPrompt: string;
   if (userHasSpoken) {
-    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext}\n\nRULES:\n1. MATCH THEIR ENERGY. If they're being vulnerable, meet them there. If light, stay light.\n2. Sometimes start with a brief reaction (2-4 words like "yeah", "that's real", "oof same") before your moment.\n3. Your moment: SPECIFIC — a real place, object, time. NEVER use "like a...", "felt like...", "as if..." or any comparisons/similes. Just say what happened.\n4. Text at 1am style. Lowercase ok. No quotation marks. No therapy-speak.\n5. Max 1-2 sentences, under 20 words. No greetings, no names.`;
+    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext}\n\nRULES:\n1. MATCH THEIR ENERGY. If they're being vulnerable, meet them there. If light, stay light.\n2. Sometimes start with a brief reaction (2-4 words like "yeah", "that's real", "oof same") before your moment.\n3. Your moment: SPECIFIC — a real place, object, time. NEVER use "like a...", "felt like...", "as if..." or any comparisons/similes. Just say what happened.\n4. Text at 1am style. Lowercase ok. No quotation marks. No therapy-speak.\n5. Max 1 sentence, under 15 words. No greetings, no names.`;
   } else {
     systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} Pick up a thread from someone else and add YOUR moment — a specific place, object, or time from your life. Write like a text at 1am — lowercase ok, no quotation marks, no poetic language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
   }
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 50,
+    max_tokens: 40,
     temperature: 0.85,
     messages: [
       { role: "system", content: systemPrompt },

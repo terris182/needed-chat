@@ -94,11 +94,11 @@ async function seedWithThreeBots(
     ? `The icebreaker is: "${icebreakerQuestion}".`
     : `The room topic is "${room.title}".`;
 
-  const toneRule = `Write like you're texting a friend at 1am — lowercase ok, no quotation marks around titles, no poetic language. NEVER use "like a..." or "it felt like..." comparisons. No metaphors, no similes, no imagery. Just say what happened. Be SPECIFIC: name a real place, object, time. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
+  const toneRule = `NEVER repeat or echo the question's wording. Just jump straight into your answer. Write like you're texting a friend at 1am — lowercase ok, no quotation marks around titles, no poetic language. NEVER use "like a...", "felt like...", "as if..." or any comparisons/similes. Just say what happened. Be SPECIFIC: name a real place, object, time. Max 15 words, 1 sentence. No greetings, no names, no questions.`;
 
   // Bot 1: answers the icebreaker from their own experience
   const r1 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.95,
+    model: "gpt-4o-mini", max_tokens: 40, temperature: 0.95,
     messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext} Answer from YOUR life with a detail only you'd know. ${toneRule}` }],
   });
   const body1 = cleanBotMessage(r1.choices[0]?.message?.content || "");
@@ -109,7 +109,7 @@ async function seedWithThreeBots(
 
   // Bot 2: DIFFERENT answer — no echoing bot 1
   const r2 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.95,
+    model: "gpt-4o-mini", max_tokens: 40, temperature: 0.95,
     messages: [
       { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext} Someone already answered. You MUST give a completely different answer — different topic, different vibe. Don't riff on their answer, share YOUR OWN unrelated thing. ${toneRule}` },
       { role: "user", content: `Someone said: "${body1}"\n\nGive a DIFFERENT answer, not related to theirs:` },
@@ -123,7 +123,7 @@ async function seedWithThreeBots(
 
   // Bot 3: yet another different answer
   const r3 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.95,
+    model: "gpt-4o-mini", max_tokens: 40, temperature: 0.95,
     messages: [
       { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext} Two people already answered with different things. Give YOUR answer — completely different from both. Maybe find one tiny thread connecting all three. ${toneRule}` },
       { role: "user", content: `Others said:\n- "${body1}"\n- "${body2}"\n\nGive a DIFFERENT answer:` },
