@@ -91,13 +91,15 @@ async function seedWithThreeBots(
   );
 
   const questionContext = icebreakerQuestion
-    ? `The question is: "${icebreakerQuestion}". Answer with one specific moment from YOUR life.`
-    : `Share one specific moment from your life related to "${room.title}".`;
+    ? `The icebreaker is: "${icebreakerQuestion}".`
+    : `The room topic is "${room.title}".`;
+
+  const toneRule = `Write like you're texting a friend at 1am — lowercase ok, no quotation marks around song/show titles, no poetic or sentimental language. Be SPECIFIC: name a real place, a real object, a specific time. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
 
   // Bot 1: answers the icebreaker from their own experience
   const r1 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.9,
-    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext} CRITICAL: Write like a text message, not a novel. Max 1-2 sentences, under 25 words. One vivid freeze-frame from your life. No greetings, no names, no quoting the question.` }],
+    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.95,
+    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext} Answer from YOUR life with a detail only you'd know. ${toneRule}` }],
   });
   const body1 = cleanBotMessage(r1.choices[0]?.message?.content || "");
   if (!body1) return;
@@ -105,12 +107,12 @@ async function seedWithThreeBots(
 
   await new Promise((r) => setTimeout(r, 600));
 
-  // Bot 2: answers the same icebreaker, lightly acknowledges bot 1 if it relates
+  // Bot 2: DIFFERENT answer — no echoing bot 1
   const r2 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.9,
+    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.95,
     messages: [
-      { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext} Someone just shared their moment. Let it spark YOUR moment — riff like improv, your detail interlocking with theirs. CRITICAL: Max 1-2 sentences, under 25 words. Like a text, not a monologue. No greetings, no names, no questions.` },
-      { role: "user", content: `Someone else in the room said: ${body1}` },
+      { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext} Someone already answered. You MUST give a completely different answer — different topic, different vibe. Don't riff on their answer, share YOUR OWN unrelated thing. ${toneRule}` },
+      { role: "user", content: `Someone said: "${body1}"\n\nGive a DIFFERENT answer, not related to theirs:` },
     ],
   });
   const body2 = cleanBotMessage(r2.choices[0]?.message?.content || "");
@@ -119,12 +121,12 @@ async function seedWithThreeBots(
 
   await new Promise((r) => setTimeout(r, 800));
 
-  // Bot 3: answers the icebreaker, can lightly reference what others said
+  // Bot 3: yet another different answer
   const r3 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.9,
+    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.95,
     messages: [
-      { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext} Two others already shared. Find the invisible thread connecting all three of you and drop YOUR moment in. CRITICAL: Max 1-2 sentences, under 25 words. Like a text message. No greetings, no names, no questions.` },
-      { role: "user", content: `Others in the room said:\n- ${body1}\n- ${body2}` },
+      { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext} Two people already answered with different things. Give YOUR answer — completely different from both. Maybe find one tiny thread connecting all three. ${toneRule}` },
+      { role: "user", content: `Others said:\n- "${body1}"\n- "${body2}"\n\nGive a DIFFERENT answer:` },
     ],
   });
   const body3 = cleanBotMessage(r3.choices[0]?.message?.content || "");
@@ -144,10 +146,10 @@ async function continueConvo(room: any, messages: any[], botIds: string[], icebr
 
   const context = messages.slice(0, 5).reverse().map((m: any) => `someone: ${m.body}`).join("\n");
   const iceContext = icebreakerQuestion ? ` The room's icebreaker is: "${icebreakerQuestion}".` : (room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : "");
-  const systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${iceContext} Someone just shared. Let it trigger YOUR moment — one specific detail from your life that rhymes with theirs. CRITICAL: Max 1-2 sentences, under 25 words. Like a text message. No greetings, no names, no questions.`;
+  const systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${iceContext} Someone just shared. Let it trigger a SPECIFIC moment from YOUR life — name a place, an object, a time. Write like a text at 1am, lowercase ok, no quotation marks, no poetic language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
 
   const r1 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.85,
+    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.9,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: `Recent:\n${context}` },

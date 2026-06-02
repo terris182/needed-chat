@@ -126,14 +126,14 @@ export async function POST(request: Request) {
 
   let systemPrompt: string;
   if (userHasSpoken) {
-    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} CRITICAL: You are a character in a living story told through chat. Someone shared something — let it trigger a flash from YOUR life. One vivid detail that interlocks with theirs like scenes from different movies that rhyme. You're all circling the same invisible theme without knowing it. Write like a TEXT MESSAGE — max 1-2 short sentences, under 25 words. No greetings, no names, no questions. Just one sharp moment.`;
+    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} Someone shared something — let it trigger a SPECIFIC moment from YOUR life. Name a real place, object, or time. Write like a text at 1am — lowercase ok, no quotation marks around titles, no poetic or sentimental language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
   } else {
-    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} CRITICAL: You are characters building a world together before the audience arrives. Pick up a thread from someone else's story and add YOUR moment — the detail that makes people realize all these strangers are secretly in the same story. Write like a TEXT MESSAGE — max 1-2 short sentences, under 25 words. No greetings, no names, no questions. Drop one vivid detail that makes people curious.`;
+    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} Pick up a thread from someone else and add YOUR moment — a specific place, object, or time from your life. Write like a text at 1am — lowercase ok, no quotation marks, no poetic language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
   }
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 60,
+    max_tokens: 50,
     temperature: 0.85,
     messages: [
       { role: "system", content: systemPrompt },

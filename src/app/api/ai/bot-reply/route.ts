@@ -116,12 +116,12 @@ export async function POST(request: Request) {
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 60,
+    max_tokens: 50,
     temperature: 0.85,
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""} CRITICAL: You are a character in a living story told through chat bubbles. Someone just shared something — let it trigger a flash from YOUR life. One vivid detail that interlocks with theirs. Your stories are colliding like characters in a film who don't know they're in the same movie yet. Write like a TEXT MESSAGE, not a novel — max 1-2 short sentences, under 25 words total. No greetings, no names, no questions, no therapy-speak. Just one sharp, specific, human moment.`,
+        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""} Someone just shared something — let it trigger a SPECIFIC moment from YOUR life. Name a real place, object, or time. Write like a text at 1am — lowercase ok, no quotation marks around titles, no poetic or sentimental language, no therapy-speak. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],
