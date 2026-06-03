@@ -92,7 +92,7 @@ export async function GET(request: Request) {
 
     const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
-      max_tokens: 25,
+      max_tokens: 35,
       temperature: 0.95,
       messages: [
         {

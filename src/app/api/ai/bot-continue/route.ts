@@ -182,7 +182,7 @@ GOOD (10k likes): "nobody's talking about the fact that he said our and not my"`
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 25,
+    max_tokens: 35,
     temperature: 0.95,
     messages: [
       { role: "system", content: systemPrompt },
