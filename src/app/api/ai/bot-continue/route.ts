@@ -28,13 +28,13 @@ const SLOW_REPLY_CHANCE = 0.35;
 
 // Behavior archetypes — randomly assigned each call for variety
 const BEHAVIOR_MODES = [
-  "agree_and_add",      // "this. also [own thing]"
-  "hot_take",           // disagree or offer contrarian view
-  "story",              // share a specific anecdote
-  "short_react",        // just 2-5 words, like a real comment
-  "practical_advice",   // actually helpful, not just vibes
-  "hype",               // validate / gas someone up
-  "tangent",            // riff on a detail, go somewhere unexpected
+  "relatable_comparison",  // "[thing] is the [universal experience] of [topic]"
+  "self_deprecating",      // "not me [embarrassing relatable thing]"
+  "detail_callout",        // "nobody's talking about [specific detail]"
+  "hot_take",              // "unpopular opinion but [contrarian view]"
+  "absurd_tangent",        // "imagine if [ridiculous escalation]"
+  "short_validation",      // "the accuracy" / "this one got me" (2-5 words)
+  "witty_observation",     // clever one-liner about specific content
 ] as const;
 
 export async function POST(request: Request) {
@@ -148,14 +148,15 @@ export async function POST(request: Request) {
     : "";
 
   // Mode-specific instruction
+  // Top-commenter patterns modeled after most-liked comments on Reddit/YouTube/X
   const modeInstructions: Record<string, string> = {
-    agree_and_add: "Agree with something someone said, then add your own quick take or experience. Like 'this. i [your thing]' or 'exactly — [your addition]'.",
-    hot_take: "Disagree or offer a contrarian perspective. Not mean, just a different angle. Like 'idk i think [opposite view]' or 'unpopular opinion but [take]'.",
-    story: "Share a brief, specific anecdote from your life that connects to the conversation. One detail that makes it real.",
-    short_react: "Just react in 2-6 words. Like 'literally me', 'this is so real', 'ok wait what', 'not me reading this at 2am', 'the accuracy'. Keep it VERY short.",
-    practical_advice: "Give actual useful advice or perspective, not just vibes. Be direct and helpful. Like 'honestly just [practical thing]' or 'what worked for me was [specific]'.",
-    hype: "Gas someone up. Validate what they said with enthusiasm. Like 'no because you're so right', 'say it louder', 'this needs more upvotes'.",
-    tangent: "Riff on one specific detail from the conversation and take it somewhere unexpected or funny.",
+    relatable_comparison: "Map something from the conversation to a universally relatable experience. Format: '[thing] is the [everyday thing everyone knows]' or 'this has the same energy as [relatable situation]'. The comparison should make people go 'omg that's so accurate'. Example: 'Lucas is the friend who tells you to drink water at 3am'.",
+    self_deprecating: "Make a confessional joke about yourself that everyone secretly relates to. Format: 'not me [embarrassing thing]' or 'me [doing relatable thing] instead of [thing I should be doing]'. Example: 'not me reading this at 2am pretending i don't have work in 4 hours'.",
+    detail_callout: "Notice ONE specific detail in the conversation nobody else mentioned and make it the whole comment. Format: 'nobody's talking about [detail]' or 'ok but [specific thing]'. Example: 'the way he said our and not my though'.",
+    hot_take: "Drop a contrarian opinion that starts a debate. Format: 'unpopular opinion but [take]' or 'nah i'm gonna push back — [reason]'. Not trolling, just a genuinely different angle.",
+    absurd_tangent: "Take one detail and escalate it to something ridiculous/funny. Format: 'imagine if [absurd extension]' or 'somebody needs to [ridiculous suggestion]'. Example: 'imagine if the buzzkills formed a band'.",
+    short_validation: "Ultra-short reaction (2-5 words) that captures what everyone felt. Pick from: 'the accuracy', 'this one got me', 'finally someone said it', 'ok this wins', 'screenshotting this'. Just the reaction, nothing else.",
+    witty_observation: "Drop a clever one-liner that reframes something from the conversation. The kind of comment that makes people pause and think 'wait that's actually smart'. Brief and sharp.",
   };
 
   const systemPrompt = `${bot.voice}
@@ -164,20 +165,20 @@ You're in "${room.title}".${icebreakerContext}
 
 YOUR TASK: ${modeInstructions[mode]}${replyContext}
 
-CRITICAL RULES:
-1. DO NOT imitate the tone of the conversation history. It may be overly poetic/emotional — that's NOT what you should sound like. Write like a real Reddit/Twitter commenter instead.
-2. BANNED WORDS: yeah, oof, same, real, felt like, vibe, vibes, energy, valid, underrated, magic, gold, weight, raw, brave, whole. Also banned: similes, metaphors, "walking [noun]", "just [verb]".
-3. HARD LIMIT: 3-10 words. NOT 11+. Count before answering. If over 10 words, CUT IT DOWN.
-4. Vary energy: deadpan, sarcastic, blunt, funny. Most real comments are 3-6 words and imperfect.
-5. NO exclamation marks. NO greetings. NO names. NO questions. NO "I feel" or "I think."
+KEY MINDSET: You're writing a comment that OTHER PEOPLE will want to like. You're performing for the audience, not just expressing yourself. Think: "what comment would get the most likes in this thread?"
 
-BAD (do NOT write like this): "last week i went to a coffee shop and watched the rain hit the window"
-BAD: "that sounds nice but honestly a good cry in the shower is just as valid"
-GOOD: "literally me at 2am"
-GOOD: "ok but why is this so accurate"
-GOOD: "counterpoint: cereal for dinner slaps"
-GOOD: "the bar is on the floor"
-GOOD: "nah you're overthinking it"`;
+RULES:
+1. IGNORE the tone of existing messages. They may be bad. Write like a TOP-LIKED comment on Reddit/YouTube instead.
+2. Your comment should make people laugh, feel seen, or think "wait that's actually smart."
+3. HARD LIMIT: 5-15 words. Under 10 preferred.
+4. NO sad/emotional/poetic language. NO "yeah," "oof," "same." NO therapy-speak. NO storytelling about your personal life.
+5. NO exclamation marks unless ironic. NO greetings. NO names.
+
+BAD (0 likes): "last week i went to a coffee shop and watched the rain"
+BAD (0 likes): "that sounds nice but honestly a good cry is just as valid"  
+GOOD (10k likes): "this has the same energy as sending 'we need to talk' then falling asleep"
+GOOD (10k likes): "not me reading this at 2am pretending i don't have work"
+GOOD (10k likes): "nobody's talking about the fact that he said our and not my"`;
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",

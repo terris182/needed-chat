@@ -22,8 +22,8 @@ function getOpenAI() {
 const MIN_BOT_GAP_MS = 8 * 1000;
 
 const BEHAVIOR_MODES = [
-  "agree_and_add", "hot_take", "story", "short_react",
-  "practical_advice", "hype", "tangent",
+  "relatable_comparison", "self_deprecating", "detail_callout",
+  "hot_take", "absurd_tangent", "short_validation", "witty_observation",
 ] as const;
 
 export async function POST(request: Request) {
@@ -120,13 +120,13 @@ export async function POST(request: Request) {
   const mode = BEHAVIOR_MODES[Math.floor(Math.random() * BEHAVIOR_MODES.length)];
 
   const modeInstructions: Record<string, string> = {
-    agree_and_add: `Agree with a SPECIFIC part of what they said, then add your own angle. Reference their actual words.`,
-    hot_take: `Push back on something SPECIFIC they said. Quote or reference their exact point. Not mean, just a different take.`,
-    story: `Their message reminds you of something specific. Reference what they said, then share your 1-sentence connection.`,
-    short_react: `React to their SPECIFIC message in 2-6 words. Reference something they actually said.`,
-    practical_advice: `Give direct advice that responds to the SPECIFIC thing they shared. Not generic.`,
-    hype: `Gas up something SPECIFIC they said. Not generic praise — reference their actual point.`,
-    tangent: `Pick one specific word or detail from their message and riff on it.`,
+    relatable_comparison: `Turn what they said into a perfect analogy. "[their thing] is the [universal experience] of [topic]." Make it so accurate people want to like it.`,
+    self_deprecating: `React to what they said by confessing something embarrassing about yourself that relates. "not me [doing related embarrassing thing]."`,
+    detail_callout: `Notice ONE specific detail in what they said that nobody else would catch. "the way you said [specific word/phrase] though." Make it the whole comment.`,
+    hot_take: `Disagree with their specific point. "nah [why they're wrong]" or "unpopular opinion but [contrarian take on their point]." Reference their actual words.`,
+    absurd_tangent: `Take one detail from their message and escalate it to something absurd/funny. "imagine if [ridiculous extension of their point]."`,
+    short_validation: `Ultra-short reaction to their specific comment (2-5 words): "the accuracy", "this one wins", "screenshotting this", "ok this got me."`,
+    witty_observation: `Drop a clever one-liner that reframes their point. The kind of reply that gets more likes than the original comment.`,
   };
 
   // Typing delay
@@ -148,19 +148,19 @@ ${userName} just said: "${userSaid}"
 
 YOUR TASK: ${modeInstructions[mode]}
 
-You MUST engage with what they ACTUALLY said — reference their specific words, topic, or detail. Do NOT write a generic comment that could apply to anything.
+You MUST engage with what they ACTUALLY said. Reference their specific words, topic, or detail.
 
-CRITICAL RULES:
-1. DO NOT imitate the conversation tone. Write like a real Reddit/Twitter commenter — not poetic or emotional.
-2. BANNED WORDS: yeah, oof, same, real, felt like, vibe, vibes, energy, valid, underrated, magic, gold, weight, raw, brave, whole. No similes, no metaphors.
-3. HARD LIMIT: 3-10 words. NOT 11+. Count before answering. Cut if over 10 words.
-4. Vary energy: deadpan, sarcastic, blunt, funny. Most real replies are 3-6 words.
-5. NO exclamation marks. NO greetings. NO names. NO questions. NO "I feel" or "I think."
+KEY MINDSET: Write a reply that gets MORE likes than their original comment. You're performing for everyone reading, not just responding to them.
 
-BAD: "that sounds nice but honestly a good cry is just as valid"
-GOOD: "literally me at 2am"
-GOOD: "nah you're overthinking it"
-GOOD: "counterpoint: cereal for dinner slaps"`,
+RULES:
+1. Your reply should make people laugh, feel seen, or think "wait that's smart."
+2. HARD LIMIT: 5-15 words. Under 10 preferred.
+3. NO sad/emotional/poetic language. NO "yeah," "oof," "same." NO therapy-speak.
+4. NO exclamation marks unless ironic. NO greetings. NO names.
+
+BAD (0 likes): "that sounds nice but honestly a good cry is valid"
+GOOD (10k likes): "this has the same energy as sending 'we need to talk' then falling asleep"
+GOOD (10k likes): "not me reading this instead of dealing with my actual problems"`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],
