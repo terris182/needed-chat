@@ -98,6 +98,9 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
   // Reject if too short after cleanup
   if (!body || body.split(/\s+/).length < 2) return null;
 
+  // Reject if ends with a dangling apostrophe/quote (truncated mid-word)
+  if (/[''`]$/.test(body)) return null;
+
   // Final truncation check
   const finalTruncated = truncationSignals.some((re) => re.test(body));
   if (finalTruncated && body.split(/\s+/).length > 10) return null;
