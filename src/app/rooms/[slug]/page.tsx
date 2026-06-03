@@ -17,6 +17,7 @@ interface Message {
   user_id: string;
   reply_to_id?: string | null;
   users_profile?: { username: string } | null;
+  metadata?: { context_prompt?: string } | null;
 }
 
 interface Room {
@@ -471,6 +472,7 @@ export default function RoomPage() {
                 body={msg.body}
                 createdAt={msg.created_at}
                 isOwn={msg.user_id === userId}
+                contextPrompt={msg.metadata?.context_prompt || null}
                 replyToUsername={replyTarget?.users_profile?.username || null}
                 replyToBody={replyTarget?.body ? (replyTarget.body.length > 50 ? replyTarget.body.slice(0, 50) + "…" : replyTarget.body) : null}
                 onTapReply={() => {

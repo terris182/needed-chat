@@ -18,6 +18,7 @@ interface MessageRowProps {
   createdAt: string;
   isOwn?: boolean;
   className?: string;
+  contextPrompt?: string | null;
   replyToUsername?: string | null;
   replyToBody?: string | null;
   onReplyClick?: () => void;
@@ -32,6 +33,7 @@ export function MessageRow({
   createdAt,
   isOwn,
   className,
+  contextPrompt,
   replyToUsername,
   replyToBody,
   onReplyClick,
@@ -62,6 +64,22 @@ export function MessageRow({
 
   return (
     <div className={cn("group relative flex flex-col gap-0.5 px-4 py-1.5", isOwn && "items-end", className)}>
+      {/* Icebreaker prompt indicator */}
+      {contextPrompt && !replyToUsername && (
+        <div className={cn(
+          "flex items-center gap-1.5 text-[11px] text-accent/70 max-w-[85%] truncate",
+          isOwn && "flex-row-reverse"
+        )}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 opacity-60">
+            <path d="M6 1L6 7M6 7L3 4M6 7L9 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform="rotate(180 6 6)"/>
+            <path d="M2 10H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span className="truncate italic opacity-80">
+            answering: {contextPrompt}
+          </span>
+        </div>
+      )}
+
       {/* Reply context indicator */}
       {replyToUsername && replyToBody && (
         <button

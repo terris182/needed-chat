@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot, randomBots } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
+import { getTopicContext } from "@/lib/bots/topic-context";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -85,27 +86,40 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
     { onConflict: "room_id,user_id" }
   );
 
-  const questionContext = room.daily_prompt
-    ? `The question is: "${room.daily_prompt}". Answer it directly like a real person would on Reddit or Twitter.`
-    : `React to "${room.title}" like a real internet commenter would.`;
+  const topicFacts = await getTopicContext(
+    room.title, room.daily_prompt, getSupabase(), room.id
+  );
+  const factsBlock = topicFacts
+    ? `\n\nREAL FACTS (use these, don't make things up):\n${topicFacts}`
+    : "";
 
-  // Bot 1: answers the prompt directly — casual, real
+  const questionContext = room.daily_prompt
+    ? `The question is: "${room.daily_prompt}". Answer from your own experience.`
+    : `React to "${room.title}" — share something real from your life or knowledge.`;
+
+  const baseRules = `Sound like a real person in a group chat. Casual, specific, honest. Max 20 words. No greetings, no names, no therapy-speak, no poetic language. Lowercase ok.`;
+
+  // Bot 1: answers directly
   const r1 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 35, temperature: 0.95,
-    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext}\n\nCRITICAL: Sound like a real Reddit/Twitter comment. NOT poetic, NOT sad. Casual, blunt, maybe funny. BANNED: "yeah," "oof," "same," "that's real," "felt like," "vibes," "valid," "underrated," exclamation marks, therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.` }],
+    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.9,
+    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext}${factsBlock}\n\n${baseRules}` }],
   });
   const body1 = cleanBotOutput(r1.choices[0]?.message?.content);
   if (!body1) return;
-  const { data: msg1 } = await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[0].id, body: body1, message_type: "user", moderation_status: "safe" }).select("id").single();
+  const { data: msg1 } = await getSupabase().from("messages").insert({
+    room_id: room.id, user_id: bots[0].id, body: body1,
+    message_type: "user", moderation_status: "safe",
+    metadata: room.daily_prompt ? { context_prompt: room.daily_prompt } : null,
+  }).select("id").single();
 
   await new Promise((r) => setTimeout(r, 1500));
 
-  // Bot 2: replies to bot 1 — builds on or pushes back
-  const shouldReply = Math.random() < 0.7;
+  // Bot 2: different answer, sometimes replies to bot 1
+  const shouldReply = Math.random() < 0.5;
   const r2 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 35, temperature: 0.95,
+    model: "gpt-4o-mini", max_tokens: 50, temperature: 0.9,
     messages: [
-      { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext} Someone else shared their take. ${shouldReply ? "Reply to their specific comment — agree, disagree, or riff on it." : "Share your own completely different take."}\n\nCRITICAL: Sound like a real Reddit/Twitter comment. Casual, blunt. BANNED: "yeah," "oof," "same," "felt like," "vibes," "valid," exclamation marks, therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.` },
+      { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext}${factsBlock}\n\nSomeone already shared their take. ${shouldReply ? "React to what they said or build on it." : "Share your own completely different take."}\n\n${baseRules}` },
       { role: "user", content: `Someone said: ${body1}` },
     ],
   });
@@ -115,22 +129,22 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
     room_id: room.id, user_id: bots[1].id, body: body2,
     message_type: "user", moderation_status: "safe",
     reply_to_id: shouldReply && msg1?.id ? msg1.id : null,
+    metadata: !shouldReply && room.daily_prompt ? { context_prompt: room.daily_prompt } : null,
   }).select("id").single();
 
   if (bots.length >= 3) {
     await new Promise((r) => setTimeout(r, 2000));
 
-    // Bot 3: different energy — maybe short react, maybe tangent
+    // Bot 3: different energy — react, tangent, or new angle
     const r3 = await getOpenAI().chat.completions.create({
-      model: "gpt-4o-mini", max_tokens: 35, temperature: 0.95,
+      model: "gpt-4o-mini", max_tokens: 50, temperature: 0.9,
       messages: [
-        { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext} Two others commented. Add YOUR take — could be a short reaction (3-5 words), a different angle, or something funny. Vary the energy from what's already there.\n\nCRITICAL: Sound like a real Reddit/Twitter comment. Casual. BANNED: "yeah," "oof," "same," "felt like," "vibes," "valid," therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.` },
+        { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext}${factsBlock}\n\nTwo others commented. Add YOUR take — could be a reaction, a different angle, or a follow-up question.\n\n${baseRules}` },
         { role: "user", content: `Comments so far:\n- ${body1}\n- ${body2}` },
       ],
     });
     const body3 = cleanBotOutput(r3.choices[0]?.message?.content);
     if (body3) {
-      // Bot 3 sometimes replies to bot 1, sometimes to bot 2, sometimes neither
       const pickReply = Math.random();
       const replyId = pickReply < 0.3 ? msg1?.id : pickReply < 0.6 ? msg2?.id : null;
       await getSupabase().from("messages").insert({
@@ -152,24 +166,33 @@ async function continueExistingConvo(room: any, messages: any[], botIds: string[
     { onConflict: "room_id,user_id" }
   );
 
+  const topicFacts = await getTopicContext(
+    room.title, room.daily_prompt, getSupabase(), room.id
+  );
+  const factsBlock = topicFacts
+    ? `\n\nREAL FACTS (reference these, don't make things up):\n${topicFacts}`
+    : "";
+
   const context = messages
     .slice(0, 5)
     .reverse()
     .map((m: any) => `someone: ${m.body}`)
     .join("\n");
 
-  // Pick a message to reply to
+  // Diversified targeting — don't always reply to human
   const humanMsg = messages.find((m: any) => !botIds.includes(m.user_id));
-  const replyTarget = Math.random() < 0.5 ? humanMsg : null;
+  const botMsg = messages.find((m: any) => botIds.includes(m.user_id) && m.user_id !== bot.id);
+  const roll = Math.random();
+  const replyTarget = roll < 0.3 ? humanMsg : roll < 0.5 ? botMsg : null;
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 35,
-    temperature: 0.95,
+    max_tokens: 50,
+    temperature: 0.9,
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in "${room.title}".${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""} Sound like a real Reddit/Twitter commenter. BANNED: "yeah," "oof," "same," "felt like," "vibes," "valid," therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.`,
+        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""}\n\nShare something real — from your experience or knowledge about the topic. Be specific. Max 20 words, 1-2 sentences. No greetings, no names, no therapy-speak. Lowercase ok.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

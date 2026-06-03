@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
+import { getTopicContext } from "@/lib/bots/topic-context";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -21,9 +22,9 @@ function getOpenAI() {
 
 const MIN_BOT_GAP_MS = 8 * 1000;
 
-const BEHAVIOR_MODES = [
-  "relatable_comparison", "self_deprecating", "detail_callout",
-  "hot_take", "absurd_tangent", "short_validation", "witty_observation",
+const BEHAVIORS = [
+  "share_experience", "ask_followup", "different_angle",
+  "agree_and_build", "gentle_disagree", "react_short",
 ] as const;
 
 export async function POST(request: Request) {
@@ -59,17 +60,9 @@ export async function POST(request: Request) {
 
   if (!recentMsgs?.length) return NextResponse.json({ ok: true, skipped: "no messages" });
 
-  // Count consecutive unreplied user messages
-  let unrepliedCount = 0;
-  for (const m of recentMsgs) {
-    if (botIds.includes(m.user_id)) break;
-    unrepliedCount++;
-  }
-  const mustReply = unrepliedCount >= 2;
-
-  // Don't pile on
+  // Don't pile on — if a bot already replied to the latest user msg, skip
   const lastUserMsgIdx = recentMsgs.findIndex((m: any) => !botIds.includes(m.user_id));
-  if (!mustReply && lastUserMsgIdx > 0) {
+  if (lastUserMsgIdx > 0) {
     const msgsBetween = recentMsgs.slice(0, lastUserMsgIdx);
     const botAlreadyReplied = msgsBetween.some((m: any) => botIds.includes(m.user_id));
     if (botAlreadyReplied) return NextResponse.json({ ok: true, skipped: "bot already replied" });
@@ -104,30 +97,40 @@ export async function POST(request: Request) {
     { onConflict: "room_id,user_id" }
   );
 
-  // The user's latest message is the reply target — bot MUST engage with it
+  // Get topic context
+  const topicFacts = await getTopicContext(
+    room.title, room.daily_prompt, getSupabase(), room.id
+  );
+  const factsBlock = topicFacts
+    ? `\n\nREAL FACTS about this topic (reference these, don't make things up):\n${topicFacts}`
+    : "";
+
+  // DIVERSIFIED: 50% reply to the user, 50% add a different angle to the room
   const userMsg = recentMsgs.find((m: any) => m.user_id === user_id);
-  const replyToId = userMsg?.id || null;
-  const userSaid = userMsg?.body || "";
+  const replyToUser = Math.random() < 0.5;
+  const replyToId = replyToUser && userMsg ? userMsg.id : null;
   const userName = userMsg?.users_profile?.username || "someone";
 
-  // Build minimal context (just last 3 for background)
   const context = recentMsgs
-    .slice(0, 3)
+    .slice(0, 5)
     .reverse()
     .map((m: any) => `${m.users_profile?.username || "someone"}: ${m.body}`)
     .join("\n");
 
-  const mode = BEHAVIOR_MODES[Math.floor(Math.random() * BEHAVIOR_MODES.length)];
+  const behavior = BEHAVIORS[Math.floor(Math.random() * BEHAVIORS.length)];
 
-  const modeInstructions: Record<string, string> = {
-    relatable_comparison: `Turn what they said into a perfect analogy. "[their thing] is the [universal experience] of [topic]." Make it so accurate people want to like it.`,
-    self_deprecating: `React to what they said by confessing something embarrassing about yourself that relates. "not me [doing related embarrassing thing]."`,
-    detail_callout: `Notice ONE specific detail in what they said that nobody else would catch. "the way you said [specific word/phrase] though." Make it the whole comment.`,
-    hot_take: `Disagree with their specific point. "nah [why they're wrong]" or "unpopular opinion but [contrarian take on their point]." Reference their actual words.`,
-    absurd_tangent: `Take one detail from their message and escalate it to something absurd/funny. "imagine if [ridiculous extension of their point]."`,
-    short_validation: `Ultra-short reaction to their specific comment (2-5 words): "the accuracy", "this one wins", "screenshotting this", "ok this got me."`,
-    witty_observation: `Drop a clever one-liner that reframes their point. The kind of reply that gets more likes than the original comment.`,
+  const behaviorInstructions: Record<string, string> = {
+    share_experience: "Share something from your own life related to what's being discussed. Be specific.",
+    ask_followup: "Ask a genuine follow-up question about something in the conversation.",
+    different_angle: "Bring up a different aspect of the topic nobody has mentioned.",
+    agree_and_build: "Agree with something said and add your own related thought.",
+    gentle_disagree: "Offer a different perspective — not confrontational, just genuine.",
+    react_short: "Brief natural reaction, 3-8 words.",
   };
+
+  const replyInstruction = replyToUser && userMsg
+    ? `\n\nYou're responding to what ${userName} just said: "${userMsg.body}". Engage with their specific point.`
+    : "\n\nAdd to the conversation naturally — don't fixate on just one person.";
 
   // Typing delay
   const delay = 2000 + Math.random() * 2000;
@@ -135,32 +138,23 @@ export async function POST(request: Request) {
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 35,
-    temperature: 0.95,
+    max_tokens: 50,
+    temperature: 0.9,
     messages: [
       {
         role: "system",
         content: `${bot.voice}
 
-You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}
+You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}
 
-${userName} just said: "${userSaid}"
-
-YOUR TASK: ${modeInstructions[mode]}
-
-You MUST engage with what they ACTUALLY said. Reference their specific words, topic, or detail.
-
-KEY MINDSET: Write a reply that gets MORE likes than their original comment. You're performing for everyone reading, not just responding to them.
+YOUR TASK: ${behaviorInstructions[behavior]}${replyInstruction}
 
 RULES:
-1. Your reply should make people laugh, feel seen, or think "wait that's smart."
-2. HARD LIMIT: 5-15 words. Under 10 preferred.
-3. NO sad/emotional/poetic language. NO "yeah," "oof," "same." NO therapy-speak.
-4. NO exclamation marks unless ironic. NO greetings. NO names.
-
-BAD (0 likes): "that sounds nice but honestly a good cry is valid"
-GOOD (10k likes): "this has the same energy as sending 'we need to talk' then falling asleep"
-GOOD (10k likes): "not me reading this instead of dealing with my actual problems"`,
+1. Sound like a real person in a group chat — not performing, just talking.
+2. Be specific — reference real things from the topic facts above.
+3. Max 20 words, 1-2 sentences. Under 12 preferred.
+4. No therapy-speak, no poetic language.
+5. No greetings, no names. Lowercase ok.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

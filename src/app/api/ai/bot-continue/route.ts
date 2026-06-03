@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
+import { getTopicContext } from "@/lib/bots/topic-context";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -26,15 +27,14 @@ const MAX_BOT_MESSAGES_PER_HOUR = 30;
 const ACTIVE_REPLY_CHANCE = 0.85;
 const SLOW_REPLY_CHANCE = 0.35;
 
-// Behavior archetypes — randomly assigned each call for variety
-const BEHAVIOR_MODES = [
-  "relatable_comparison",  // "[thing] is the [universal experience] of [topic]"
-  "self_deprecating",      // "not me [embarrassing relatable thing]"
-  "detail_callout",        // "nobody's talking about [specific detail]"
-  "hot_take",              // "unpopular opinion but [contrarian view]"
-  "absurd_tangent",        // "imagine if [ridiculous escalation]"
-  "short_validation",      // "the accuracy" / "this one got me" (2-5 words)
-  "witty_observation",     // clever one-liner about specific content
+// Conversation behaviors — what the bot does in this turn
+const BEHAVIORS = [
+  "share_experience",    // share something from their own life related to topic
+  "ask_followup",        // ask a genuine question about what someone said
+  "different_angle",     // bring up a different aspect of the topic
+  "agree_and_build",     // agree with someone and add to it
+  "gentle_disagree",     // respectfully offer a different take
+  "react_short",         // brief natural reaction (2-6 words)
 ] as const;
 
 export async function POST(request: Request) {
@@ -47,7 +47,6 @@ export async function POST(request: Request) {
   if (!personas.length) return NextResponse.json({ pace: "stopped", skipped: "no bots" });
   const botIds = personas.map((p) => p.id);
 
-  // Determine pace
   const now = Date.now();
   const lastActivity = last_user_message_at ? new Date(last_user_message_at).getTime() : 0;
   const inactiveMs = lastActivity ? now - lastActivity : Infinity;
@@ -58,7 +57,6 @@ export async function POST(request: Request) {
 
   const pace = inactiveMs > INACTIVITY_SLOW_MS ? "slow" : "active";
   const replyChance = pace === "slow" ? SLOW_REPLY_CHANCE : ACTIVE_REPLY_CHANCE;
-
   if (Math.random() > replyChance) {
     return NextResponse.json({ pace, posted: false, reason: "skipped by chance" });
   }
@@ -73,7 +71,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ pace: "stopped", skipped: "room inactive" });
   }
 
-  // Get recent messages with usernames for threading context
   const { data: recentMsgs } = await getSupabase()
     .from("messages")
     .select("id, user_id, body, created_at, reply_to_id, users_profile(username)")
@@ -90,7 +87,7 @@ export async function POST(request: Request) {
   if (lastBotMsg) {
     const lastBotTime = new Date(lastBotMsg.created_at).getTime();
     if (now - lastBotTime < MIN_BOT_GAP_MS) {
-      return NextResponse.json({ pace, posted: false, reason: "too soon after last bot msg" });
+      return NextResponse.json({ pace, posted: false, reason: "too soon" });
     }
   }
 
@@ -107,31 +104,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ pace: "slow", posted: false, reason: "hourly limit" });
   }
 
-  // Pick a bot that didn't send the last message
   const lastMsg = recentMsgs[0];
   const bot = randomBot(lastMsg?.user_id);
   if (!bot) return NextResponse.json({ pace, posted: false, reason: "no bot available" });
 
-  // Ensure bot is a member
   await getSupabase().from("room_members").upsert(
     { room_id: room.id, user_id: bot.id, role: "member" },
     { onConflict: "room_id,user_id" }
   );
 
-  // Pick a random behavior mode
-  const mode = BEHAVIOR_MODES[Math.floor(Math.random() * BEHAVIOR_MODES.length)];
+  // Get topic context for grounding
+  const topicFacts = await getTopicContext(
+    room.title, room.daily_prompt, getSupabase(), room.id
+  );
+  const factsBlock = topicFacts
+    ? `\n\nREAL FACTS about this topic (reference these, don't make things up):\n${topicFacts}`
+    : "";
 
-  // Decide whether to reply to a specific message (60% chance) or the room generally
+  const behavior = BEHAVIORS[Math.floor(Math.random() * BEHAVIORS.length)];
+
+  // DIVERSIFIED reply targeting:
+  // 30% reply to a human message, 25% reply to a bot message,
+  // 45% no reply target (general room comment / new angle)
   const nonBotMsgs = recentMsgs.filter((m: any) => !botIds.includes(m.user_id));
-  const replyTarget = (Math.random() < 0.6 && nonBotMsgs.length > 0)
-    ? nonBotMsgs[Math.floor(Math.random() * Math.min(nonBotMsgs.length, 3))]
-    : (Math.random() < 0.4 && recentMsgs.length > 1)
-      ? recentMsgs[Math.floor(Math.random() * Math.min(recentMsgs.length, 4))]
-      : null;
+  const botMsgs = recentMsgs.filter((m: any) => botIds.includes(m.user_id) && m.user_id !== bot.id);
 
-  // Build conversation context — only last 4 messages to reduce style contamination
+  let replyTarget: any = null;
+  const roll = Math.random();
+  if (roll < 0.30 && nonBotMsgs.length > 0) {
+    replyTarget = nonBotMsgs[Math.floor(Math.random() * Math.min(nonBotMsgs.length, 3))];
+  } else if (roll < 0.55 && botMsgs.length > 0) {
+    replyTarget = botMsgs[Math.floor(Math.random() * Math.min(botMsgs.length, 3))];
+  }
+  // else: no reply target, bot adds to the room generally
+
   const context = recentMsgs
-    .slice(0, 4)
+    .slice(0, 6)
     .reverse()
     .map((m: any) => {
       const name = m.users_profile?.username || "someone";
@@ -140,50 +148,40 @@ export async function POST(request: Request) {
     .join("\n");
 
   const replyContext = replyTarget
-    ? `\n\nYou're replying specifically to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"`
+    ? `\n\nYou're replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"`
     : "";
+
+  const behaviorInstructions: Record<string, string> = {
+    share_experience: "Share something from your own life or experience related to the topic. Be specific — a real moment, place, or detail.",
+    ask_followup: "Ask a genuine follow-up question about something someone said. Show real curiosity.",
+    different_angle: "Bring up a different aspect of the topic that nobody has mentioned yet. Use real facts if you have them.",
+    agree_and_build: "Agree with something someone said and add your own related thought or experience on top.",
+    gentle_disagree: "Offer a different perspective. Not confrontational — just 'I actually see it differently because...'",
+    react_short: "Give a brief, natural reaction to the conversation. 3-8 words. Something genuine, not performative.",
+  };
 
   const icebreakerContext = room.daily_prompt
     ? ` The room's topic/question is: "${room.daily_prompt}".`
     : "";
 
-  // Mode-specific instruction
-  // Top-commenter patterns modeled after most-liked comments on Reddit/YouTube/X
-  const modeInstructions: Record<string, string> = {
-    relatable_comparison: "Map something from the conversation to a universally relatable experience. Format: '[thing] is the [everyday thing everyone knows]' or 'this has the same energy as [relatable situation]'. The comparison should make people go 'omg that's so accurate'. Example: 'Lucas is the friend who tells you to drink water at 3am'.",
-    self_deprecating: "Make a confessional joke about yourself that everyone secretly relates to. Format: 'not me [embarrassing thing]' or 'me [doing relatable thing] instead of [thing I should be doing]'. Example: 'not me reading this at 2am pretending i don't have work in 4 hours'.",
-    detail_callout: "Notice ONE specific detail in the conversation nobody else mentioned and make it the whole comment. Format: 'nobody's talking about [detail]' or 'ok but [specific thing]'. Example: 'the way he said our and not my though'.",
-    hot_take: "Drop a contrarian opinion that starts a debate. Format: 'unpopular opinion but [take]' or 'nah i'm gonna push back — [reason]'. Not trolling, just a genuinely different angle.",
-    absurd_tangent: "Take one detail and escalate it to something ridiculous/funny. Format: 'imagine if [absurd extension]' or 'somebody needs to [ridiculous suggestion]'. Example: 'imagine if the buzzkills formed a band'.",
-    short_validation: "Ultra-short reaction (2-5 words) that captures what everyone felt. Pick from: 'the accuracy', 'this one got me', 'finally someone said it', 'ok this wins', 'screenshotting this'. Just the reaction, nothing else.",
-    witty_observation: "Drop a clever one-liner that reframes something from the conversation. The kind of comment that makes people pause and think 'wait that's actually smart'. Brief and sharp.",
-  };
-
   const systemPrompt = `${bot.voice}
 
-You're in "${room.title}".${icebreakerContext}
+You're in "${room.title}".${icebreakerContext}${factsBlock}
 
-YOUR TASK: ${modeInstructions[mode]}${replyContext}
-
-KEY MINDSET: You're writing a comment that OTHER PEOPLE will want to like. You're performing for the audience, not just expressing yourself. Think: "what comment would get the most likes in this thread?"
+YOUR TASK: ${behaviorInstructions[behavior]}${replyContext}
 
 RULES:
-1. IGNORE the tone of existing messages. They may be bad. Write like a TOP-LIKED comment on Reddit/YouTube instead.
-2. Your comment should make people laugh, feel seen, or think "wait that's actually smart."
-3. HARD LIMIT: 5-15 words. Under 10 preferred.
-4. NO sad/emotional/poetic language. NO "yeah," "oof," "same." NO therapy-speak. NO storytelling about your personal life.
-5. NO exclamation marks unless ironic. NO greetings. NO names.
-
-BAD (0 likes): "last week i went to a coffee shop and watched the rain"
-BAD (0 likes): "that sounds nice but honestly a good cry is just as valid"  
-GOOD (10k likes): "this has the same energy as sending 'we need to talk' then falling asleep"
-GOOD (10k likes): "not me reading this at 2am pretending i don't have work"
-GOOD (10k likes): "nobody's talking about the fact that he said our and not my"`;
+1. Sound like a real person in a group chat, not a commenter performing for likes.
+2. Be specific — reference real things, not vague generalities.
+3. Max 20 words, 1-2 sentences. Under 12 preferred.
+4. No therapy-speak, no poetic language, no exclamation marks.
+5. No greetings, no names. Lowercase ok.
+6. If you reference the topic, use REAL facts from the context above.`;
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 35,
-    temperature: 0.95,
+    max_tokens: 50,
+    temperature: 0.9,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: `Recent conversation:\n${context}` },

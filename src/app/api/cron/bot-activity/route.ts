@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
+import { getTopicContext } from "@/lib/bots/topic-context";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -77,6 +78,13 @@ export async function GET(request: Request) {
       { onConflict: "room_id,user_id" }
     );
 
+    const topicFacts = await getTopicContext(
+      room.title, room.daily_prompt, getSupabase(), room.id
+    );
+    const factsBlock = topicFacts
+      ? `\n\nREAL FACTS (reference these, don't make things up):\n${topicFacts}`
+      : "";
+
     const context = lastMsgs
       .slice(0, 6)
       .reverse()
@@ -86,18 +94,20 @@ export async function GET(request: Request) {
       })
       .join("\n");
 
-    // Pick a message to reply to (prefer human messages)
+    // Diversified targeting
     const humanMsg = lastMsgs.find((m: any) => !botIds.includes(m.user_id));
-    const replyTarget = Math.random() < 0.5 ? humanMsg : null;
+    const botMsg = lastMsgs.find((m: any) => botIds.includes(m.user_id) && m.user_id !== bot.id);
+    const roll = Math.random();
+    const replyTarget = roll < 0.3 ? humanMsg : roll < 0.5 ? botMsg : null;
 
     const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
-      max_tokens: 35,
-      temperature: 0.95,
+      max_tokens: 50,
+      temperature: 0.9,
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""} It's been quiet.${replyTarget ? ` You're replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}\n\nDrop something from YOUR life. Sound like a real Reddit/Twitter comment — casual, blunt, maybe funny. BANNED: "yeah," "oof," "same," "that's real," "felt like," "vibes," "valid," "underrated," exclamation marks, therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.`,
+          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock} It's been quiet.${replyTarget ? ` Replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}\n\nShare something real from your experience or knowledge about this topic. Be specific. Max 20 words, 1-2 sentences. No greetings, no names, no therapy-speak. Lowercase ok.`,
         },
         { role: "user", content: `Recent conversation:\n${context}` },
       ],
