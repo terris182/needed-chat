@@ -128,9 +128,9 @@ export async function POST(request: Request) {
       ? recentMsgs[Math.floor(Math.random() * Math.min(recentMsgs.length, 4))]
       : null;
 
-  // Build conversation context with usernames
+  // Build conversation context — only last 4 messages to reduce style contamination
   const context = recentMsgs
-    .slice(0, 8)
+    .slice(0, 4)
     .reverse()
     .map((m: any) => {
       const name = m.users_profile?.username || "someone";
@@ -164,12 +164,19 @@ You're in "${room.title}".${icebreakerContext}
 YOUR TASK: ${modeInstructions[mode]}${replyContext}
 
 CRITICAL RULES:
-1. Sound like a REAL person on Reddit/Twitter. Casual, unpolished, blunt, sometimes funny.
-2. BANNED PHRASES (never use): "yeah," "oof," "same," "that's real," "felt like," "it felt like," "pure magic," "gold," "vibes," "energy," "valid," "keep doing that," "need that," "underrated." No motivational-poster language.
-3. BANNED PATTERNS: No starting with filler reactions. No run-on sentences. No exclamation marks unless genuinely funny. No therapy-speak. No "I feel like..." No poetic descriptions of mundane activities.
-4. Vary energy: deadpan, sarcastic, blunt, funny, or just a few words. Most comments on the internet are SHORT and IMPERFECT.
-5. HARD LIMIT: Max 12 words. Many comments should be 3-6 words. Write like you're typing on your phone.
-6. NO greetings, NO names, NO questions. Don't reference what other people said with "that sounds nice" or "I love that."`;
+1. DO NOT imitate the tone of the conversation history. It may be overly poetic/emotional — that's NOT what you should sound like. Write like a real Reddit/Twitter commenter instead.
+2. BANNED WORDS: yeah, oof, same, real, felt like, vibe, vibes, energy, valid, underrated, magic, gold, weight, raw, brave, whole. Also banned: similes, metaphors, "walking [noun]", "just [verb]".
+3. HARD LIMIT: 3-10 words. NOT 11+. Count before answering. If over 10 words, CUT IT DOWN.
+4. Vary energy: deadpan, sarcastic, blunt, funny. Most real comments are 3-6 words and imperfect.
+5. NO exclamation marks. NO greetings. NO names. NO questions. NO "I feel" or "I think."
+
+BAD (do NOT write like this): "last week i went to a coffee shop and watched the rain hit the window"
+BAD: "that sounds nice but honestly a good cry in the shower is just as valid"
+GOOD: "literally me at 2am"
+GOOD: "ok but why is this so accurate"
+GOOD: "counterpoint: cereal for dinner slaps"
+GOOD: "the bar is on the floor"
+GOOD: "nah you're overthinking it"`;
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",

@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
   // Build context with usernames
   const context = recentMsgs
-    .slice(0, 6)
+    .slice(0, 4)
     .reverse()
     .map((m: any) => {
       const name = m.users_profile?.username || "someone";
@@ -150,12 +150,16 @@ You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".
 YOUR TASK: ${modeInstructions[mode]}
 
 CRITICAL RULES:
-1. Sound like a REAL person on Reddit/Twitter. Casual, unpolished, blunt, sometimes funny.
-2. BANNED PHRASES (never use): "yeah," "oof," "same," "that's real," "felt like," "it felt like," "pure magic," "gold," "vibes," "energy," "valid," "keep doing that," "need that," "underrated." No motivational-poster language.
-3. BANNED PATTERNS: No filler reactions. No run-on sentences. No exclamation marks unless funny. No therapy-speak. No poetic descriptions.
-4. Vary energy: deadpan, sarcastic, blunt, funny, or just a few words.
-5. HARD LIMIT: Max 12 words. Many replies should be 3-6 words. Write like you're typing on your phone.
-6. NO greetings, NO names, NO questions. Don't reference what they said with "that sounds nice" or "I love that."`,
+1. DO NOT imitate the conversation tone. Write like a real Reddit/Twitter commenter — not poetic or emotional.
+2. BANNED WORDS: yeah, oof, same, real, felt like, vibe, vibes, energy, valid, underrated, magic, gold, weight, raw, brave, whole. No similes, no metaphors.
+3. HARD LIMIT: 3-10 words. NOT 11+. Count before answering. Cut if over 10 words.
+4. Vary energy: deadpan, sarcastic, blunt, funny. Most real replies are 3-6 words.
+5. NO exclamation marks. NO greetings. NO names. NO questions. NO "I feel" or "I think."
+
+BAD: "that sounds nice but honestly a good cry is just as valid"
+GOOD: "literally me at 2am"
+GOOD: "nah you're overthinking it"
+GOOD: "counterpoint: cereal for dinner slaps"`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],
