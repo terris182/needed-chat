@@ -41,6 +41,7 @@ export default function RoomPage() {
   const [sending, setSending] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string; body: string } | null>(null);
+  const [reactions, setReactions] = useState<Record<string, { emoji: string; count: number; users: string[] }[]>>({});
   const lastUserActivityRef = useRef<string>(new Date().toISOString());
   const botLoopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botPaceRef = useRef<"active" | "slow" | "stopped">("active");
@@ -95,7 +96,31 @@ export default function RoomPage() {
             }
           }
         }
-        if (msgs) setMessages(msgs as Message[]);
+        if (msgs) {
+          setMessages(msgs as Message[]);
+          // Fetch reactions for all messages
+          const msgIds = msgs.map((m: any) => m.id);
+          if (msgIds.length > 0) {
+            const { data: rxns } = await supabase
+              .from("message_reactions")
+              .select("message_id, emoji, user_id")
+              .in("message_id", msgIds);
+            if (rxns) {
+              const rxnMap: Record<string, { emoji: string; count: number; users: string[] }[]> = {};
+              for (const r of rxns as any[]) {
+                if (!rxnMap[r.message_id]) rxnMap[r.message_id] = [];
+                const existing = rxnMap[r.message_id].find((x: any) => x.emoji === r.emoji);
+                if (existing) {
+                  existing.count++;
+                  existing.users.push(r.user_id);
+                } else {
+                  rxnMap[r.message_id].push({ emoji: r.emoji, count: 1, users: [r.user_id] });
+                }
+              }
+              setReactions(rxnMap);
+            }
+          }
+        }
       }
     }
     init();
@@ -139,10 +164,43 @@ export default function RoomPage() {
       )
       .subscribe();
 
+    // Also subscribe to reaction changes
+    const rxnChannel = supabase
+      .channel(`reactions:${room.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_reactions",
+        },
+        async () => {
+          // Refetch all reactions for current messages
+          const msgIds = messages.map((m) => m.id);
+          if (msgIds.length === 0) return;
+          const { data: rxns } = await supabase
+            .from("message_reactions")
+            .select("message_id, emoji, user_id")
+            .in("message_id", msgIds);
+          if (rxns) {
+            const rxnMap: Record<string, { emoji: string; count: number; users: string[] }[]> = {};
+            for (const r of rxns as any[]) {
+              if (!rxnMap[r.message_id]) rxnMap[r.message_id] = [];
+              const existing = rxnMap[r.message_id].find((x: any) => x.emoji === r.emoji);
+              if (existing) { existing.count++; existing.users.push(r.user_id); }
+              else rxnMap[r.message_id].push({ emoji: r.emoji, count: 1, users: [r.user_id] });
+            }
+            setReactions(rxnMap);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(rxnChannel);
     };
-  }, [room, supabase]);
+  }, [room, supabase, messages]);
 
   // Bot conversation loop — keeps bots chatting at a natural pace
   useEffect(() => {
@@ -312,6 +370,50 @@ export default function RoomPage() {
     );
   }
 
+  async function handleReact(messageId: string, emoji: string) {
+    if (!userId) return;
+    const msgReactions = reactions[messageId] || [];
+    const existing = msgReactions.find((r) => r.emoji === emoji);
+    const hasReacted = existing?.users.includes(userId);
+
+    if (hasReacted) {
+      // Remove reaction
+      await supabase
+        .from("message_reactions")
+        .delete()
+        .eq("message_id", messageId)
+        .eq("user_id", userId)
+        .eq("emoji", emoji);
+      setReactions((prev) => {
+        const updated = { ...prev };
+        const arr = (updated[messageId] || []).map((r) =>
+          r.emoji === emoji ? { ...r, count: r.count - 1, users: r.users.filter((u) => u !== userId) } : r
+        ).filter((r) => r.count > 0);
+        if (arr.length === 0) delete updated[messageId];
+        else updated[messageId] = arr;
+        return updated;
+      });
+    } else {
+      // Add reaction
+      await supabase
+        .from("message_reactions")
+        .insert({ message_id: messageId, user_id: userId, emoji });
+      setReactions((prev) => {
+        const updated = { ...prev };
+        const arr = [...(updated[messageId] || [])];
+        const ex = arr.find((r) => r.emoji === emoji);
+        if (ex) {
+          ex.count++;
+          ex.users.push(userId);
+        } else {
+          arr.push({ emoji, count: 1, users: [userId] });
+        }
+        updated[messageId] = arr;
+        return updated;
+      });
+    }
+  }
+
   const isEarly = room.status === "seeding" && room.active_member_count < 3;
 
   return (
@@ -379,6 +481,12 @@ export default function RoomPage() {
                   });
                   inputRef.current?.focus();
                 }}
+                reactions={(reactions[msg.id] || []).map((r) => ({
+                  emoji: r.emoji,
+                  count: r.count,
+                  hasReacted: r.users.includes(userId || ""),
+                }))}
+                onReact={(emoji) => handleReact(msg.id, emoji)}
               />
             );
           })}
