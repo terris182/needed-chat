@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 50,
+    max_tokens: 25,
     temperature: 0.95,
     messages: [
       {
@@ -150,12 +150,12 @@ You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".
 YOUR TASK: ${modeInstructions[mode]}
 
 CRITICAL RULES:
-1. Sound like a REAL person on Reddit/Twitter/YouTube. Casual, unpolished.
-2. NEVER start with "yeah," "oof," "same," or any filler opener. NEVER be whiny or poetic.
-3. Vary energy — funny, blunt, supportive, skeptical. Not always emotional.
-4. Lowercase fine. No quotation marks. No therapy-speak.
-5. Max 1-2 sentences, under 20 words. Some replies should be 3-5 words.
-6. NO greetings, NO names, NO questions unless rhetorical.`,
+1. Sound like a REAL person on Reddit/Twitter. Casual, unpolished, blunt, sometimes funny.
+2. BANNED PHRASES (never use): "yeah," "oof," "same," "that's real," "felt like," "it felt like," "pure magic," "gold," "vibes," "energy," "valid," "keep doing that," "need that," "underrated." No motivational-poster language.
+3. BANNED PATTERNS: No filler reactions. No run-on sentences. No exclamation marks unless funny. No therapy-speak. No poetic descriptions.
+4. Vary energy: deadpan, sarcastic, blunt, funny, or just a few words.
+5. HARD LIMIT: Max 12 words. Many replies should be 3-6 words. Write like you're typing on your phone.
+6. NO greetings, NO names, NO questions. Don't reference what they said with "that sounds nice" or "I love that."`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

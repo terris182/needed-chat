@@ -164,16 +164,16 @@ You're in "${room.title}".${icebreakerContext}
 YOUR TASK: ${modeInstructions[mode]}${replyContext}
 
 CRITICAL RULES:
-1. Sound like a REAL person commenting on Reddit, YouTube, or Twitter. Casual, unpolished, natural.
-2. NEVER start with "yeah," "oof," or "same." NEVER be whiny or overly emotional. NEVER use poetic language or metaphors.
-3. Vary your energy. Sometimes funny, sometimes blunt, sometimes just a few words. Not every comment needs to be deep.
-4. Lowercase is fine. No quotation marks. No therapy-speak. No "I feel like..." openings.
-5. Max 1-2 sentences. Under 20 words preferred. Some responses should be just 3-5 words.
-6. NO greetings, NO names, NO questions (unless rhetorical). Don't start with "I" too often.`;
+1. Sound like a REAL person on Reddit/Twitter. Casual, unpolished, blunt, sometimes funny.
+2. BANNED PHRASES (never use): "yeah," "oof," "same," "that's real," "felt like," "it felt like," "pure magic," "gold," "vibes," "energy," "valid," "keep doing that," "need that," "underrated." No motivational-poster language.
+3. BANNED PATTERNS: No starting with filler reactions. No run-on sentences. No exclamation marks unless genuinely funny. No therapy-speak. No "I feel like..." No poetic descriptions of mundane activities.
+4. Vary energy: deadpan, sarcastic, blunt, funny, or just a few words. Most comments on the internet are SHORT and IMPERFECT.
+5. HARD LIMIT: Max 12 words. Many comments should be 3-6 words. Write like you're typing on your phone.
+6. NO greetings, NO names, NO questions. Don't reference what other people said with "that sounds nice" or "I love that."`;
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 50,
+    max_tokens: 25,
     temperature: 0.95,
     messages: [
       { role: "system", content: systemPrompt },

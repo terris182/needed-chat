@@ -90,8 +90,8 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
 
   // Bot 1: answers the prompt directly — casual, real
   const r1 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.95,
-    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext}\n\nCRITICAL: Sound like a real Reddit/Twitter comment. NOT poetic, NOT sad, NOT therapy-speak. Casual and natural. Maybe funny, maybe blunt, maybe earnest. Max 1-2 sentences, under 25 words. No greetings, no names.` }],
+    model: "gpt-4o-mini", max_tokens: 25, temperature: 0.95,
+    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext}\n\nCRITICAL: Sound like a real Reddit/Twitter comment. NOT poetic, NOT sad. Casual, blunt, maybe funny. BANNED: "yeah," "oof," "same," "that's real," "felt like," "vibes," "valid," "underrated," exclamation marks, therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.` }],
   });
   const body1 = r1.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
   if (!body1) return;
@@ -102,9 +102,9 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
   // Bot 2: replies to bot 1 — builds on or pushes back
   const shouldReply = Math.random() < 0.7;
   const r2 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.95,
+    model: "gpt-4o-mini", max_tokens: 25, temperature: 0.95,
     messages: [
-      { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext} Someone else shared their take. ${shouldReply ? "Reply to their specific comment — agree, disagree, or riff on it." : "Share your own completely different take."}\n\nCRITICAL: Sound like a real internet comment. Casual. NOT poetic or whiny. Max 1-2 sentences, under 25 words. No greetings, no names.` },
+      { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext} Someone else shared their take. ${shouldReply ? "Reply to their specific comment — agree, disagree, or riff on it." : "Share your own completely different take."}\n\nCRITICAL: Sound like a real Reddit/Twitter comment. Casual, blunt. BANNED: "yeah," "oof," "same," "felt like," "vibes," "valid," exclamation marks, therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.` },
       { role: "user", content: `Someone said: ${body1}` },
     ],
   });
@@ -121,9 +121,9 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
 
     // Bot 3: different energy — maybe short react, maybe tangent
     const r3 = await getOpenAI().chat.completions.create({
-      model: "gpt-4o-mini", max_tokens: 60, temperature: 0.95,
+      model: "gpt-4o-mini", max_tokens: 25, temperature: 0.95,
       messages: [
-        { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext} Two others commented. Add YOUR take — could be a short reaction (3-5 words), a different angle, or something funny. Vary the energy from what's already there.\n\nCRITICAL: Sound like a real internet comment. NOT poetic. Max 1-2 sentences, under 25 words. No greetings, no names.` },
+        { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext} Two others commented. Add YOUR take — could be a short reaction (3-5 words), a different angle, or something funny. Vary the energy from what's already there.\n\nCRITICAL: Sound like a real Reddit/Twitter comment. Casual. BANNED: "yeah," "oof," "same," "felt like," "vibes," "valid," therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.` },
         { role: "user", content: `Comments so far:\n- ${body1}\n- ${body2}` },
       ],
     });
@@ -163,12 +163,12 @@ async function continueExistingConvo(room: any, messages: any[], botIds: string[
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 60,
+    max_tokens: 25,
     temperature: 0.95,
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in "${room.title}".${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""} Sound like a real internet commenter — casual, natural. NOT poetic or whiny. Max 1-2 sentences, under 25 words. No greetings, no names.`,
+        content: `${bot.voice}\n\nYou're in "${room.title}".${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""} Sound like a real Reddit/Twitter commenter. BANNED: "yeah," "oof," "same," "felt like," "vibes," "valid," therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

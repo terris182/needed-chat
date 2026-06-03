@@ -91,12 +91,12 @@ export async function GET(request: Request) {
 
     const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
-      max_tokens: 50,
+      max_tokens: 25,
       temperature: 0.95,
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""} It's been quiet.${replyTarget ? ` You're replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}\n\nDrop something from YOUR life related to the room. Sound like a real internet comment — casual, maybe funny, maybe blunt. NOT sad, NOT poetic. Lowercase ok, no quotation marks. Max 1-2 sentences, under 20 words. No greetings, no names.`,
+          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""} It's been quiet.${replyTarget ? ` You're replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}\n\nDrop something from YOUR life. Sound like a real Reddit/Twitter comment — casual, blunt, maybe funny. BANNED: "yeah," "oof," "same," "that's real," "felt like," "vibes," "valid," "underrated," exclamation marks, therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.`,
         },
         { role: "user", content: `Recent conversation:\n${context}` },
       ],
