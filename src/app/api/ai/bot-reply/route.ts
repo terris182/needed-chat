@@ -103,33 +103,29 @@ export async function POST(request: Request) {
     { onConflict: "room_id,user_id" }
   );
 
-  // Build context with usernames
-  const context = recentMsgs
-    .slice(0, 4)
-    .reverse()
-    .map((m: any) => {
-      const name = m.users_profile?.username || "someone";
-      return `${name}: ${m.body}`;
-    })
-    .join("\n");
-
-  // The user's latest message is the reply target
+  // The user's latest message is the reply target — bot MUST engage with it
   const userMsg = recentMsgs.find((m: any) => m.user_id === user_id);
   const replyToId = userMsg?.id || null;
-  const replyContext = userMsg
-    ? `\nYou're replying to ${userMsg.users_profile?.username || "someone"} who said: "${userMsg.body}"`
-    : "";
+  const userSaid = userMsg?.body || "";
+  const userName = userMsg?.users_profile?.username || "someone";
+
+  // Build minimal context (just last 3 for background)
+  const context = recentMsgs
+    .slice(0, 3)
+    .reverse()
+    .map((m: any) => `${m.users_profile?.username || "someone"}: ${m.body}`)
+    .join("\n");
 
   const mode = BEHAVIOR_MODES[Math.floor(Math.random() * BEHAVIOR_MODES.length)];
 
   const modeInstructions: Record<string, string> = {
-    agree_and_add: "Agree with them, then add your own quick take. Like 'this. also [thing]'.",
-    hot_take: "Push back gently or offer a different angle. Not mean, just real.",
-    story: "Share a brief specific anecdote that connects to what they said.",
-    short_react: "React in 2-6 words max. Like 'literally me', 'the accuracy', 'ok wait this'.",
-    practical_advice: "Give actual useful advice. Be direct.",
-    hype: "Validate what they said with genuine enthusiasm.",
-    tangent: "Riff on one detail and take it somewhere unexpected.",
+    agree_and_add: `Agree with a SPECIFIC part of what they said, then add your own angle. Reference their actual words.`,
+    hot_take: `Push back on something SPECIFIC they said. Quote or reference their exact point. Not mean, just a different take.`,
+    story: `Their message reminds you of something specific. Reference what they said, then share your 1-sentence connection.`,
+    short_react: `React to their SPECIFIC message in 2-6 words. Reference something they actually said.`,
+    practical_advice: `Give direct advice that responds to the SPECIFIC thing they shared. Not generic.`,
+    hype: `Gas up something SPECIFIC they said. Not generic praise — reference their actual point.`,
+    tangent: `Pick one specific word or detail from their message and riff on it.`,
   };
 
   // Typing delay
@@ -145,9 +141,13 @@ export async function POST(request: Request) {
         role: "system",
         content: `${bot.voice}
 
-You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${replyContext}
+You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}
+
+${userName} just said: "${userSaid}"
 
 YOUR TASK: ${modeInstructions[mode]}
+
+You MUST engage with what they ACTUALLY said — reference their specific words, topic, or detail. Do NOT write a generic comment that could apply to anything.
 
 CRITICAL RULES:
 1. DO NOT imitate the conversation tone. Write like a real Reddit/Twitter commenter — not poetic or emotional.

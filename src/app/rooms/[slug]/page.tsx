@@ -40,6 +40,7 @@ export default function RoomPage() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; username: string; body: string } | null>(null);
   const lastUserActivityRef = useRef<string>(new Date().toISOString());
   const botLoopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botPaceRef = useRef<"active" | "slow" | "stopped">("active");
@@ -193,7 +194,9 @@ export default function RoomPage() {
 
     setSending(true);
     const body = newMessage.trim();
+    const replyToId = replyingTo?.id || null;
     setNewMessage("");
+    setReplyingTo(null);
 
     // Track user activity — resets bot pace to active
     lastUserActivityRef.current = new Date().toISOString();
@@ -236,6 +239,7 @@ export default function RoomPage() {
           user_id: userId,
           body,
           moderation_status: "pending",
+          reply_to_id: replyToId,
         })
         .select("id")
         .single();
@@ -265,6 +269,7 @@ export default function RoomPage() {
           user_id: userId,
           body,
           moderation_status: "safe",
+          reply_to_id: replyToId,
         })
         .select("id")
         .single();
@@ -366,6 +371,14 @@ export default function RoomPage() {
                 isOwn={msg.user_id === userId}
                 replyToUsername={replyTarget?.users_profile?.username || null}
                 replyToBody={replyTarget?.body ? (replyTarget.body.length > 50 ? replyTarget.body.slice(0, 50) + "…" : replyTarget.body) : null}
+                onTapReply={() => {
+                  setReplyingTo({
+                    id: msg.id,
+                    username: msg.users_profile?.username || "anonymous",
+                    body: msg.body,
+                  });
+                  inputRef.current?.focus();
+                }}
               />
             );
           })}
@@ -374,8 +387,29 @@ export default function RoomPage() {
       </div>
 
       {/* Compose */}
-      <div className="border-t border-border bg-surface p-3 pb-[env(safe-area-inset-bottom)]">
-        <form onSubmit={handleSend} className="flex gap-2 items-end">
+      <div className="border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
+        {replyingTo && (
+          <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="none" className="shrink-0 text-text-tertiary">
+              <path d="M2 8V4C2 2.89543 2.89543 2 4 2H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M4 6L2 8L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div className="flex-1 min-w-0 text-xs text-text-secondary truncate">
+              <span className="font-medium">{replyingTo.username}</span>{" "}
+              <span className="text-text-tertiary">{replyingTo.body.length > 60 ? replyingTo.body.slice(0, 60) + "…" : replyingTo.body}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              className="text-text-tertiary hover:text-text-primary p-0.5"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M4 4L10 10M10 4L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        )}
+        <form onSubmit={handleSend} className="flex gap-2 items-end p-3 pt-1.5">
           <textarea
             ref={inputRef}
             value={newMessage}

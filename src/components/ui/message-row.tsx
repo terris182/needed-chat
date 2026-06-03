@@ -10,6 +10,7 @@ interface MessageRowProps {
   replyToUsername?: string | null;
   replyToBody?: string | null;
   onReplyClick?: () => void;
+  onTapReply?: () => void;
 }
 
 export function MessageRow({
@@ -21,9 +22,10 @@ export function MessageRow({
   replyToUsername,
   replyToBody,
   onReplyClick,
+  onTapReply,
 }: MessageRowProps) {
   return (
-    <div className={cn("flex flex-col gap-0.5 px-4 py-1.5", isOwn && "items-end", className)}>
+    <div className={cn("group flex flex-col gap-0.5 px-4 py-1.5", isOwn && "items-end", className)}>
       {/* Reply context indicator */}
       {replyToUsername && replyToBody && (
         <button
@@ -53,15 +55,29 @@ export function MessageRow({
           {formatDistanceToNow(new Date(createdAt), { addSuffix: true })}
         </span>
       </div>
-      <div
-        className={cn(
-          "max-w-[85%] rounded-lg px-3 py-2 text-sm",
-          isOwn
-            ? "bg-accent text-white rounded-br-sm"
-            : "bg-border-light text-text-primary rounded-bl-sm"
+      <div className={cn("flex items-end gap-1.5", isOwn && "flex-row-reverse")}>
+        <div
+          className={cn(
+            "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+            isOwn
+              ? "bg-accent text-white rounded-br-sm"
+              : "bg-border-light text-text-primary rounded-bl-sm"
+          )}
+        >
+          {body}
+        </div>
+        {onTapReply && !isOwn && (
+          <button
+            onClick={onTapReply}
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-text-tertiary hover:text-text-secondary p-1"
+            title="Reply"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 10V5.5C3 4.11929 4.11929 3 5.5 3H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M5.5 7.5L3 10L5.5 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         )}
-      >
-        {body}
       </div>
     </div>
   );
