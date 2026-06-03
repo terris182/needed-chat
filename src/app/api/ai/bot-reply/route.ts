@@ -18,11 +18,13 @@ function getOpenAI() {
   return _openai;
 }
 
-const REPLY_CHANCE = 1.0;          // Always attempt reply — other guards prevent piling on
-const MIN_BOT_GAP_MS = 8 * 1000;  // At least 8s between bot messages
+const MIN_BOT_GAP_MS = 8 * 1000;
 
-// Called by the client after a user sends a message
-// A bot responds if conditions are right — with pacing to feel natural
+const BEHAVIOR_MODES = [
+  "agree_and_add", "hot_take", "story", "short_react",
+  "practical_advice", "hype", "tangent",
+] as const;
+
 export async function POST(request: Request) {
   const { room_id, user_id } = await request.json();
   if (!room_id || !user_id) {
@@ -31,10 +33,8 @@ export async function POST(request: Request) {
 
   const personas = getActivePersonas();
   if (!personas.length) return NextResponse.json({ ok: true, skipped: "no bots" });
-
   const botIds = personas.map((p) => p.id);
 
-  // Don't reply to bots
   if (botIds.includes(user_id)) {
     return NextResponse.json({ ok: true, skipped: "bot message" });
   }
@@ -49,17 +49,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: "room inactive" });
   }
 
-  // Get recent messages for context
   const { data: recentMsgs } = await getSupabase()
     .from("messages")
-    .select("user_id, body, created_at")
+    .select("id, user_id, body, created_at, users_profile(username)")
     .eq("room_id", room_id)
     .order("created_at", { ascending: false })
     .limit(10);
 
   if (!recentMsgs?.length) return NextResponse.json({ ok: true, skipped: "no messages" });
 
-  // Count consecutive unreplied user messages — if 2+, always reply (don't ghost)
+  // Count consecutive unreplied user messages
   let unrepliedCount = 0;
   for (const m of recentMsgs) {
     if (botIds.includes(m.user_id)) break;
@@ -67,20 +66,15 @@ export async function POST(request: Request) {
   }
   const mustReply = unrepliedCount >= 2;
 
-  // Pacing: skip some replies so bots don't dominate (unless user is being ghosted)
-  if (!mustReply && Math.random() > REPLY_CHANCE) {
-    return NextResponse.json({ ok: true, skipped: "pacing skip" });
-  }
-
-  // Don't pile on — skip if a bot already replied to the last user message
+  // Don't pile on
   const lastUserMsgIdx = recentMsgs.findIndex((m: any) => !botIds.includes(m.user_id));
-  if (lastUserMsgIdx > 0) {
+  if (!mustReply && lastUserMsgIdx > 0) {
     const msgsBetween = recentMsgs.slice(0, lastUserMsgIdx);
     const botAlreadyReplied = msgsBetween.some((m: any) => botIds.includes(m.user_id));
     if (botAlreadyReplied) return NextResponse.json({ ok: true, skipped: "bot already replied" });
   }
 
-  // Min gap: don't post if a bot posted very recently
+  // Min gap
   const lastBotMsg = recentMsgs.find((m: any) => botIds.includes(m.user_id));
   if (lastBotMsg) {
     const gap = Date.now() - new Date(lastBotMsg.created_at).getTime();
@@ -89,7 +83,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // Rate limit: max 8 bot messages per room per day
+  // Daily rate limit
   const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const { count: botMsgCount } = await getSupabase()
     .from("messages")
@@ -100,36 +94,68 @@ export async function POST(request: Request) {
 
   if ((botMsgCount || 0) >= 8) return NextResponse.json({ ok: true, skipped: "daily limit" });
 
-  // Pick a bot that didn't send the last message
   const lastMsg = recentMsgs[0];
   const bot = randomBot(lastMsg?.user_id);
   if (!bot) return NextResponse.json({ ok: true, skipped: "no bot available" });
 
-  // Ensure bot is a member
   await getSupabase().from("room_members").upsert(
     { room_id: room.id, user_id: bot.id, role: "member" },
     { onConflict: "room_id,user_id" }
   );
 
-  // Build conversation context
+  // Build context with usernames
   const context = recentMsgs
     .slice(0, 6)
     .reverse()
-    .map((m: any) => `someone: ${m.body}`)
+    .map((m: any) => {
+      const name = m.users_profile?.username || "someone";
+      return `${name}: ${m.body}`;
+    })
     .join("\n");
 
-  // Quick typing delay (2-4 seconds)
+  // The user's latest message is the reply target
+  const userMsg = recentMsgs.find((m: any) => m.user_id === user_id);
+  const replyToId = userMsg?.id || null;
+  const replyContext = userMsg
+    ? `\nYou're replying to ${userMsg.users_profile?.username || "someone"} who said: "${userMsg.body}"`
+    : "";
+
+  const mode = BEHAVIOR_MODES[Math.floor(Math.random() * BEHAVIOR_MODES.length)];
+
+  const modeInstructions: Record<string, string> = {
+    agree_and_add: "Agree with them, then add your own quick take. Like 'this. also [thing]'.",
+    hot_take: "Push back gently or offer a different angle. Not mean, just real.",
+    story: "Share a brief specific anecdote that connects to what they said.",
+    short_react: "React in 2-6 words max. Like 'literally me', 'the accuracy', 'ok wait this'.",
+    practical_advice: "Give actual useful advice. Be direct.",
+    hype: "Validate what they said with genuine enthusiasm.",
+    tangent: "Riff on one detail and take it somewhere unexpected.",
+  };
+
+  // Typing delay
   const delay = 2000 + Math.random() * 2000;
   await new Promise((r) => setTimeout(r, delay));
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 40,
-    temperature: 0.85,
+    max_tokens: 50,
+    temperature: 0.95,
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""}\n\nRULES:\n1. MATCH THEIR ENERGY. If they're being vulnerable or heavy, meet them there — don't deflect with humor or go lighter. If they're joking, keep it light.\n2. Start with a brief human reaction (2-4 words like "yeah", "that's real", "oof same") THEN share your moment. Not every time — maybe 60% of replies.\n3. Your moment should be SPECIFIC — a real place, object, time. NEVER use "like a...", "felt like...", "as if..." or any comparisons/metaphors/similes. Just say what happened, plain.\n4. Write like a text at 1am. Lowercase ok. No quotation marks around titles. No therapy-speak.\n5. Max 1 sentence, under 15 words (not counting the reaction). No greetings, no names.`,
+        content: `${bot.voice}
+
+You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${replyContext}
+
+YOUR TASK: ${modeInstructions[mode]}
+
+CRITICAL RULES:
+1. Sound like a REAL person on Reddit/Twitter/YouTube. Casual, unpolished.
+2. NEVER start with "yeah," "oof," "same," or any filler opener. NEVER be whiny or poetic.
+3. Vary energy — funny, blunt, supportive, skeptical. Not always emotional.
+4. Lowercase fine. No quotation marks. No therapy-speak.
+5. Max 1-2 sentences, under 20 words. Some replies should be 3-5 words.
+6. NO greetings, NO names, NO questions unless rhetorical.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],
@@ -138,12 +164,8 @@ export async function POST(request: Request) {
   let body = completion.choices[0]?.message?.content?.trim();
   if (!body) return NextResponse.json({ ok: true, skipped: "empty response" });
 
-  // Clean up: remove leading em-dashes and trailing incomplete sentences
   body = body.replace(/^[—–-]+\s*/, "");
-  if (body.length > 0 && !body.match(/[.!?…"']$/)) {
-    const lastSentence = body.match(/^.*[.!?…"']/);
-    if (lastSentence) body = lastSentence[0];
-  }
+  body = body.replace(/^["'](.*)["']$/, "$1");
   if (!body) return NextResponse.json({ ok: true, skipped: "cleaned to empty" });
 
   await getSupabase().from("messages").insert({
@@ -152,6 +174,7 @@ export async function POST(request: Request) {
     body,
     message_type: "user",
     moderation_status: "safe",
+    reply_to_id: replyToId,
   });
 
   return NextResponse.json({ ok: true, replied: true, bot: bot.displayName });

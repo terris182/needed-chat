@@ -22,7 +22,6 @@ const BOT_MESSAGES_PER_ROOM_PER_DAY = 4;
 const MIN_SILENCE_HOURS = 4;
 
 // Vercel Cron: every 3 hours
-// vercel.json: { "path": "/api/cron/bot-activity", "schedule": "0 */3 * * *" }
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -36,7 +35,6 @@ export async function GET(request: Request) {
   const silenceCutoff = new Date(Date.now() - MIN_SILENCE_HOURS * 3600 * 1000).toISOString();
   const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
-  // Get rooms with human activity in last 7 days
   const { data: rooms } = await getSupabase()
     .from("rooms")
     .select("id, title, slug, daily_prompt")
@@ -48,7 +46,6 @@ export async function GET(request: Request) {
   let posted = 0;
 
   for (const room of rooms) {
-    // Check bot message count today
     const { count: botMsgCount } = await getSupabase()
       .from("messages")
       .select("id", { count: "exact", head: true })
@@ -58,70 +55,62 @@ export async function GET(request: Request) {
 
     if ((botMsgCount || 0) >= BOT_MESSAGES_PER_ROOM_PER_DAY) continue;
 
-    // Check last message — skip if humans were recently active
     const { data: lastMsgs } = await getSupabase()
       .from("messages")
-      .select("user_id, body, created_at")
+      .select("id, user_id, body, created_at, users_profile(username)")
       .eq("room_id", room.id)
       .order("created_at", { ascending: false })
       .limit(8);
 
     if (!lastMsgs?.length) continue;
-
     const lastMsg = lastMsgs[0];
-    // Skip if last message was recent (human or bot) — let humans breathe
     if (lastMsg.created_at > silenceCutoff) continue;
-
-    // Skip if last message was already a bot and only bots have talked recently
     const recentHumanMsg = lastMsgs.find((m: any) => !botIds.includes(m.user_id));
-    if (!recentHumanMsg) continue; // Only post if humans have participated
+    if (!recentHumanMsg) continue;
 
-    // Pick a bot that didn't send the last message
     const bot = randomBot(lastMsg.user_id);
     if (!bot) continue;
 
-    // Ensure bot is a room member
     await getSupabase().from("room_members").upsert(
       { room_id: room.id, user_id: bot.id, role: "member" },
       { onConflict: "room_id,user_id" }
     );
 
-    // Build context from recent messages
     const context = lastMsgs
       .slice(0, 6)
       .reverse()
       .map((m: any) => {
-        const who = botIds.includes(m.user_id) ? "someone" : "someone";
-        return `${who}: ${m.body}`;
+        const name = m.users_profile?.username || "someone";
+        return `${name}: ${m.body}`;
       })
       .join("\n");
 
-    // Generate bot message
+    // Pick a message to reply to (prefer human messages)
+    const humanMsg = lastMsgs.find((m: any) => !botIds.includes(m.user_id));
+    const replyTarget = Math.random() < 0.5 ? humanMsg : null;
+
     const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       max_tokens: 50,
-      temperature: 0.85,
+      temperature: 0.95,
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` The room's icebreaker is: "${room.daily_prompt}".` : ""} It's been quiet. Drop something from YOUR life related to the room — a specific place, object, or time. NEVER use "like a...", "felt like...", "as if..." or any comparisons/similes. Write like a text at 1am, lowercase ok, no quotation marks. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`,
+          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""} It's been quiet.${replyTarget ? ` You're replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}\n\nDrop something from YOUR life related to the room. Sound like a real internet comment — casual, maybe funny, maybe blunt. NOT sad, NOT poetic. Lowercase ok, no quotation marks. Max 1-2 sentences, under 20 words. No greetings, no names.`,
         },
-        {
-          role: "user",
-          content: `Recent conversation:\n${context}\n\nContinue naturally as ${bot.displayName}:`,
-        },
+        { role: "user", content: `Recent conversation:\n${context}` },
       ],
     });
 
-    const body = completion.choices[0]?.message?.content?.trim();
+    let body = completion.choices[0]?.message?.content?.trim();
+    if (!body) continue;
+    body = body.replace(/^[—–-]+\s*/, "").replace(/^["'](.*)["']$/, "$1");
     if (!body) continue;
 
     await getSupabase().from("messages").insert({
-      room_id: room.id,
-      user_id: bot.id,
-      body,
-      message_type: "user",
-      moderation_status: "safe",
+      room_id: room.id, user_id: bot.id, body,
+      message_type: "user", moderation_status: "safe",
+      reply_to_id: replyTarget?.id || null,
     });
 
     posted++;

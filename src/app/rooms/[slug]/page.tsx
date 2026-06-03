@@ -15,6 +15,7 @@ interface Message {
   moderation_status: string;
   created_at: string;
   user_id: string;
+  reply_to_id?: string | null;
   users_profile?: { username: string } | null;
 }
 
@@ -75,6 +76,24 @@ export default function RoomPage() {
           .in("moderation_status", ["pending", "safe"])
           .order("created_at", { ascending: true })
           .limit(50);
+        // Pre-fetch reply targets for threading display
+        if (msgs) {
+          const replyIds = msgs.filter((m: any) => m.reply_to_id).map((m: any) => m.reply_to_id);
+          if (replyIds.length > 0) {
+            const { data: replyMsgs } = await supabase
+              .from("messages")
+              .select("id, body, users_profile(username)")
+              .in("id", replyIds);
+            if (replyMsgs) {
+              const replyMap = new Map(replyMsgs.map((r: any) => [r.id, r]));
+              msgs.forEach((m: any) => {
+                if (m.reply_to_id && replyMap.has(m.reply_to_id)) {
+                  m._replyTarget = replyMap.get(m.reply_to_id);
+                }
+              });
+            }
+          }
+        }
         if (msgs) setMessages(msgs as Message[]);
       }
     }
@@ -96,7 +115,7 @@ export default function RoomPage() {
           filter: `room_id=eq.${room.id}`,
         },
         async (payload) => {
-          const msg = payload.new as Message;
+          const msg = payload.new as any;
           if (msg.user_id) {
             const { data: profile } = await supabase
               .from("users_profile")
@@ -105,7 +124,16 @@ export default function RoomPage() {
               .single();
             msg.users_profile = profile;
           }
-          setMessages((prev) => [...prev, msg]);
+          // Fetch reply target if this message is a reply
+          if (msg.reply_to_id) {
+            const { data: replyMsg } = await supabase
+              .from("messages")
+              .select("id, body, users_profile(username)")
+              .eq("id", msg.reply_to_id)
+              .single();
+            if (replyMsg) msg._replyTarget = replyMsg;
+          }
+          setMessages((prev) => [...prev, msg as Message]);
         }
       )
       .subscribe();
@@ -327,15 +355,20 @@ export default function RoomPage() {
         )}
 
         <div className="py-2">
-          {messages.map((msg) => (
-            <MessageRow
-              key={msg.id}
-              username={msg.users_profile?.username || "anonymous"}
-              body={msg.body}
-              createdAt={msg.created_at}
-              isOwn={msg.user_id === userId}
-            />
-          ))}
+          {messages.map((msg) => {
+            const replyTarget = (msg as any)._replyTarget;
+            return (
+              <MessageRow
+                key={msg.id}
+                username={msg.users_profile?.username || "anonymous"}
+                body={msg.body}
+                createdAt={msg.created_at}
+                isOwn={msg.user_id === userId}
+                replyToUsername={replyTarget?.users_profile?.username || null}
+                replyToBody={replyTarget?.body ? (replyTarget.body.length > 50 ? replyTarget.body.slice(0, 50) + "…" : replyTarget.body) : null}
+              />
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
       </div>

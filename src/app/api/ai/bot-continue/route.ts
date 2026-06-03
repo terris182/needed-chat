@@ -18,14 +18,24 @@ function getOpenAI() {
   return _openai;
 }
 
-const INACTIVITY_SLOW_MS = 2 * 60 * 1000;  // 2 min → slow pace
-const INACTIVITY_STOP_MS = 5 * 60 * 1000;  // 5 min → stop entirely
-const MIN_BOT_GAP_MS = 6 * 1000;           // min 6s between bot messages
+const INACTIVITY_SLOW_MS = 2 * 60 * 1000;
+const INACTIVITY_STOP_MS = 5 * 60 * 1000;
+const MIN_BOT_GAP_MS = 6 * 1000;
 const MAX_BOT_MESSAGES_PER_HOUR = 30;
 const ACTIVE_REPLY_CHANCE = 0.85;
 const SLOW_REPLY_CHANCE = 0.35;
 
-// Called periodically by the client to keep bots chatting at a natural pace
+// Behavior archetypes — randomly assigned each call for variety
+const BEHAVIOR_MODES = [
+  "agree_and_add",      // "this. also [own thing]"
+  "hot_take",           // disagree or offer contrarian view
+  "story",              // share a specific anecdote
+  "short_react",        // just 2-5 words, like a real comment
+  "practical_advice",   // actually helpful, not just vibes
+  "hype",               // validate / gas someone up
+  "tangent",            // riff on a detail, go somewhere unexpected
+] as const;
+
 export async function POST(request: Request) {
   const { room_id, last_user_message_at } = await request.json();
   if (!room_id) {
@@ -36,7 +46,7 @@ export async function POST(request: Request) {
   if (!personas.length) return NextResponse.json({ pace: "stopped", skipped: "no bots" });
   const botIds = personas.map((p) => p.id);
 
-  // Determine pace based on user inactivity
+  // Determine pace
   const now = Date.now();
   const lastActivity = last_user_message_at ? new Date(last_user_message_at).getTime() : 0;
   const inactiveMs = lastActivity ? now - lastActivity : Infinity;
@@ -48,7 +58,6 @@ export async function POST(request: Request) {
   const pace = inactiveMs > INACTIVITY_SLOW_MS ? "slow" : "active";
   const replyChance = pace === "slow" ? SLOW_REPLY_CHANCE : ACTIVE_REPLY_CHANCE;
 
-  // Roll the dice — don't post every time
   if (Math.random() > replyChance) {
     return NextResponse.json({ pace, posted: false, reason: "skipped by chance" });
   }
@@ -63,10 +72,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ pace: "stopped", skipped: "room inactive" });
   }
 
-  // Get recent messages
+  // Get recent messages with usernames for threading context
   const { data: recentMsgs } = await getSupabase()
     .from("messages")
-    .select("user_id, body, created_at")
+    .select("id, user_id, body, created_at, reply_to_id, users_profile(username)")
     .eq("room_id", room_id)
     .order("created_at", { ascending: false })
     .limit(12);
@@ -75,7 +84,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ pace, posted: false, reason: "no messages" });
   }
 
-  // Check min gap — don't post if a bot posted recently
+  // Check min gap
   const lastBotMsg = recentMsgs.find((m: any) => botIds.includes(m.user_id));
   if (lastBotMsg) {
     const lastBotTime = new Date(lastBotMsg.created_at).getTime();
@@ -108,33 +117,64 @@ export async function POST(request: Request) {
     { onConflict: "room_id,user_id" }
   );
 
-  // Build conversation context
+  // Pick a random behavior mode
+  const mode = BEHAVIOR_MODES[Math.floor(Math.random() * BEHAVIOR_MODES.length)];
+
+  // Decide whether to reply to a specific message (60% chance) or the room generally
+  const nonBotMsgs = recentMsgs.filter((m: any) => !botIds.includes(m.user_id));
+  const replyTarget = (Math.random() < 0.6 && nonBotMsgs.length > 0)
+    ? nonBotMsgs[Math.floor(Math.random() * Math.min(nonBotMsgs.length, 3))]
+    : (Math.random() < 0.4 && recentMsgs.length > 1)
+      ? recentMsgs[Math.floor(Math.random() * Math.min(recentMsgs.length, 4))]
+      : null;
+
+  // Build conversation context with usernames
   const context = recentMsgs
     .slice(0, 8)
     .reverse()
     .map((m: any) => {
-      const isBot = botIds.includes(m.user_id);
-      return `someone: ${m.body}`;
+      const name = m.users_profile?.username || "someone";
+      return `${name}: ${m.body}`;
     })
     .join("\n");
 
-  // Determine if user has spoken — adjust prompt accordingly
-  const userHasSpoken = recentMsgs.some((m: any) => !botIds.includes(m.user_id));
-  const icebreakerContext = room.daily_prompt
-    ? ` The room's icebreaker is: "${room.daily_prompt}".`
+  const replyContext = replyTarget
+    ? `\n\nYou're replying specifically to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"`
     : "";
 
-  let systemPrompt: string;
-  if (userHasSpoken) {
-    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext}\n\nRULES:\n1. MATCH THEIR ENERGY. If they're being vulnerable, meet them there. If light, stay light.\n2. Sometimes start with a brief reaction (2-4 words like "yeah", "that's real", "oof same") before your moment.\n3. Your moment: SPECIFIC — a real place, object, time. NEVER use "like a...", "felt like...", "as if..." or any comparisons/similes. Just say what happened.\n4. Text at 1am style. Lowercase ok. No quotation marks. No therapy-speak.\n5. Max 1 sentence, under 15 words. No greetings, no names.`;
-  } else {
-    systemPrompt = `${bot.voice}\n\nYou're in "${room.title}".${icebreakerContext} Pick up a thread from someone else and add YOUR moment — a specific place, object, or time from your life. Write like a text at 1am — lowercase ok, no quotation marks, no poetic language. Max 1-2 sentences, under 20 words. No greetings, no names, no questions.`;
-  }
+  const icebreakerContext = room.daily_prompt
+    ? ` The room's topic/question is: "${room.daily_prompt}".`
+    : "";
+
+  // Mode-specific instruction
+  const modeInstructions: Record<string, string> = {
+    agree_and_add: "Agree with something someone said, then add your own quick take or experience. Like 'this. i [your thing]' or 'exactly — [your addition]'.",
+    hot_take: "Disagree or offer a contrarian perspective. Not mean, just a different angle. Like 'idk i think [opposite view]' or 'unpopular opinion but [take]'.",
+    story: "Share a brief, specific anecdote from your life that connects to the conversation. One detail that makes it real.",
+    short_react: "Just react in 2-6 words. Like 'literally me', 'this is so real', 'ok wait what', 'not me reading this at 2am', 'the accuracy'. Keep it VERY short.",
+    practical_advice: "Give actual useful advice or perspective, not just vibes. Be direct and helpful. Like 'honestly just [practical thing]' or 'what worked for me was [specific]'.",
+    hype: "Gas someone up. Validate what they said with enthusiasm. Like 'no because you're so right', 'say it louder', 'this needs more upvotes'.",
+    tangent: "Riff on one specific detail from the conversation and take it somewhere unexpected or funny.",
+  };
+
+  const systemPrompt = `${bot.voice}
+
+You're in "${room.title}".${icebreakerContext}
+
+YOUR TASK: ${modeInstructions[mode]}${replyContext}
+
+CRITICAL RULES:
+1. Sound like a REAL person commenting on Reddit, YouTube, or Twitter. Casual, unpolished, natural.
+2. NEVER start with "yeah," "oof," or "same." NEVER be whiny or overly emotional. NEVER use poetic language or metaphors.
+3. Vary your energy. Sometimes funny, sometimes blunt, sometimes just a few words. Not every comment needs to be deep.
+4. Lowercase is fine. No quotation marks. No therapy-speak. No "I feel like..." openings.
+5. Max 1-2 sentences. Under 20 words preferred. Some responses should be just 3-5 words.
+6. NO greetings, NO names, NO questions (unless rhetorical). Don't start with "I" too often.`;
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
-    max_tokens: 40,
-    temperature: 0.85,
+    max_tokens: 50,
+    temperature: 0.95,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: `Recent conversation:\n${context}` },
@@ -144,12 +184,10 @@ export async function POST(request: Request) {
   let body = completion.choices[0]?.message?.content?.trim();
   if (!body) return NextResponse.json({ pace, posted: false, reason: "empty response" });
 
-  // Clean up: remove leading em-dashes (broken continuations) and trailing incomplete sentences
+  // Clean up
   body = body.replace(/^[—–-]+\s*/, "");
-  if (body.length > 0 && !body.match(/[.!?…"']$/)) {
-    const lastSentence = body.match(/^.*[.!?…"']/);
-    if (lastSentence) body = lastSentence[0];
-  }
+  // Remove wrapping quotes
+  body = body.replace(/^["'](.*)["']$/, "$1");
   if (!body) return NextResponse.json({ pace, posted: false, reason: "cleaned to empty" });
 
   await getSupabase().from("messages").insert({
@@ -158,6 +196,7 @@ export async function POST(request: Request) {
     body,
     message_type: "user",
     moderation_status: "safe",
+    reply_to_id: replyTarget?.id || null,
   });
 
   return NextResponse.json({ pace, posted: true, bot: bot.displayName });

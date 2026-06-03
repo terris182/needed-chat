@@ -7,11 +7,44 @@ interface MessageRowProps {
   createdAt: string;
   isOwn?: boolean;
   className?: string;
+  replyToUsername?: string | null;
+  replyToBody?: string | null;
+  onReplyClick?: () => void;
 }
 
-export function MessageRow({ username, body, createdAt, isOwn, className }: MessageRowProps) {
+export function MessageRow({
+  username,
+  body,
+  createdAt,
+  isOwn,
+  className,
+  replyToUsername,
+  replyToBody,
+  onReplyClick,
+}: MessageRowProps) {
   return (
     <div className={cn("flex flex-col gap-0.5 px-4 py-1.5", isOwn && "items-end", className)}>
+      {/* Reply context indicator */}
+      {replyToUsername && replyToBody && (
+        <button
+          onClick={onReplyClick}
+          className={cn(
+            "flex items-center gap-1.5 text-[11px] text-text-tertiary hover:text-text-secondary transition-colors max-w-[85%] truncate",
+            isOwn && "flex-row-reverse"
+          )}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 opacity-50">
+            <path d="M2 8V4C2 2.89543 2.89543 2 4 2H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M4 6L2 8L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="truncate">
+            <span className="font-medium">{replyToUsername}</span>
+            {" "}
+            <span className="opacity-70">{replyToBody}</span>
+          </span>
+        </button>
+      )}
+
       <div className="flex items-baseline gap-2">
         <span className={cn("text-xs font-medium", isOwn ? "text-accent" : "text-text-secondary")}>
           {username}

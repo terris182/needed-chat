@@ -19,7 +19,6 @@ function getOpenAI() {
 }
 
 // Vercel Cron: every 10 minutes
-// vercel.json: { "path": "/api/cron/bot-presence", "schedule": "*/10 * * * *" }
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -28,11 +27,9 @@ export async function GET(request: Request) {
 
   const personas = getActivePersonas();
   if (!personas.length) return NextResponse.json({ ok: true, skipped: "no bots configured" });
-
   const botIds = personas.map((p) => p.id);
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
-  // Find rooms where a non-bot user joined in the last 15 min
   const { data: newMembers } = await getSupabase()
     .from("room_members")
     .select("room_id, user_id, joined_at")
@@ -42,40 +39,34 @@ export async function GET(request: Request) {
 
   if (!newMembers?.length) return NextResponse.json({ ok: true, rooms_seeded: 0 });
 
-  // Deduplicate by room
   const roomIds = [...new Set(newMembers.map((m: any) => m.room_id))];
   let seeded = 0;
 
   for (const roomId of roomIds) {
     const { data: room } = await getSupabase()
       .from("rooms")
-      .select("id, title, slug, status")
+      .select("id, title, slug, status, daily_prompt")
       .eq("id", roomId)
       .single();
 
     if (!room || !["active", "seeding"].includes(room.status)) continue;
 
-    // Get message count and last few messages
     const { data: existingMsgs } = await getSupabase()
       .from("messages")
-      .select("user_id, body, created_at")
+      .select("id, user_id, body, created_at")
       .eq("room_id", roomId)
       .order("created_at", { ascending: false })
       .limit(10);
 
     const msgCount = existingMsgs?.length || 0;
-
-    // Check if bots already responded to this new arrival recently
     const recentBotMsg = existingMsgs?.find(
       (m: any) => botIds.includes(m.user_id) && m.created_at > fifteenMinAgo
     );
-    if (recentBotMsg) continue; // Already responded
+    if (recentBotMsg) continue;
 
     if (msgCount < 3) {
-      // Room is nearly empty — seed with a 2-bot exchange to give it life
       await seedEmptyRoom(room, personas, botIds);
     } else {
-      // Room has history — one bot continues naturally (subtle, not a greeting)
       await continueExistingConvo(room, existingMsgs, botIds);
     }
     seeded++;
@@ -88,53 +79,64 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
   const bots = randomBots(3);
   if (bots.length < 2) return;
 
-  // Ensure all bots are members
   await getSupabase().from("room_members").upsert(
     bots.map((b) => ({ room_id: room.id, user_id: b.id, role: "member" })),
     { onConflict: "room_id,user_id" }
   );
 
   const questionContext = room.daily_prompt
-    ? `The question is: "${room.daily_prompt}". Answer with one specific moment from YOUR life.`
-    : `Share one specific moment from your life related to "${room.title}".`;
+    ? `The question is: "${room.daily_prompt}". Answer it directly like a real person would on Reddit or Twitter.`
+    : `React to "${room.title}" like a real internet commenter would.`;
 
-  // Bot 1: answers the icebreaker
+  // Bot 1: answers the prompt directly — casual, real
   const r1 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.9,
-    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext} CRITICAL: Max 1-2 sentences, under 25 words. One vivid freeze-frame. Like a text, not an essay. No greetings, no names.` }],
+    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.95,
+    messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext}\n\nCRITICAL: Sound like a real Reddit/Twitter comment. NOT poetic, NOT sad, NOT therapy-speak. Casual and natural. Maybe funny, maybe blunt, maybe earnest. Max 1-2 sentences, under 25 words. No greetings, no names.` }],
   });
-  const body1 = r1.choices[0]?.message?.content?.trim();
+  const body1 = r1.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
   if (!body1) return;
-  await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[0].id, body: body1, message_type: "user", moderation_status: "safe" });
+  const { data: msg1 } = await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[0].id, body: body1, message_type: "user", moderation_status: "safe" }).select("id").single();
 
   await new Promise((r) => setTimeout(r, 1500));
 
-  // Bot 2: answers the same question, brief nod to bot 1 if it relates
+  // Bot 2: replies to bot 1 — builds on or pushes back
+  const shouldReply = Math.random() < 0.7;
   const r2 = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.9,
+    model: "gpt-4o-mini", max_tokens: 60, temperature: 0.95,
     messages: [
-      { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext} Someone shared their moment. Riff off it — your detail interlocking with theirs like improv. CRITICAL: Max 1-2 sentences, under 25 words. No greetings, no names, no questions.` },
-      { role: "user", content: `Someone else said: ${body1}` },
+      { role: "system", content: `${bots[1].voice}\n\nYou're in "${room.title}". ${questionContext} Someone else shared their take. ${shouldReply ? "Reply to their specific comment — agree, disagree, or riff on it." : "Share your own completely different take."}\n\nCRITICAL: Sound like a real internet comment. Casual. NOT poetic or whiny. Max 1-2 sentences, under 25 words. No greetings, no names.` },
+      { role: "user", content: `Someone said: ${body1}` },
     ],
   });
-  const body2 = r2.choices[0]?.message?.content?.trim();
+  const body2 = r2.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
   if (!body2) return;
-  await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[1].id, body: body2, message_type: "user", moderation_status: "safe" });
+  const { data: msg2 } = await getSupabase().from("messages").insert({
+    room_id: room.id, user_id: bots[1].id, body: body2,
+    message_type: "user", moderation_status: "safe",
+    reply_to_id: shouldReply && msg1?.id ? msg1.id : null,
+  }).select("id").single();
 
   if (bots.length >= 3) {
     await new Promise((r) => setTimeout(r, 2000));
 
-    // Bot 3: answers the icebreaker, can lightly reference others
+    // Bot 3: different energy — maybe short react, maybe tangent
     const r3 = await getOpenAI().chat.completions.create({
-      model: "gpt-4o-mini", max_tokens: 60, temperature: 0.9,
+      model: "gpt-4o-mini", max_tokens: 60, temperature: 0.95,
       messages: [
-        { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext} Two others shared. Find the thread and add YOUR moment. CRITICAL: Max 1-2 sentences, under 25 words. No greetings, no names, no questions.` },
-        { role: "user", content: `Others said:\n- ${body1}\n- ${body2}` },
+        { role: "system", content: `${bots[2].voice}\n\nYou're in "${room.title}". ${questionContext} Two others commented. Add YOUR take — could be a short reaction (3-5 words), a different angle, or something funny. Vary the energy from what's already there.\n\nCRITICAL: Sound like a real internet comment. NOT poetic. Max 1-2 sentences, under 25 words. No greetings, no names.` },
+        { role: "user", content: `Comments so far:\n- ${body1}\n- ${body2}` },
       ],
     });
-    const body3 = r3.choices[0]?.message?.content?.trim();
+    const body3 = r3.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
     if (body3) {
-      await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[2].id, body: body3, message_type: "user", moderation_status: "safe" });
+      // Bot 3 sometimes replies to bot 1, sometimes to bot 2, sometimes neither
+      const pickReply = Math.random();
+      const replyId = pickReply < 0.3 ? msg1?.id : pickReply < 0.6 ? msg2?.id : null;
+      await getSupabase().from("messages").insert({
+        room_id: room.id, user_id: bots[2].id, body: body3,
+        message_type: "user", moderation_status: "safe",
+        reply_to_id: replyId || null,
+      });
     }
   }
 }
@@ -155,24 +157,29 @@ async function continueExistingConvo(room: any, messages: any[], botIds: string[
     .map((m: any) => `someone: ${m.body}`)
     .join("\n");
 
+  // Pick a message to reply to
+  const humanMsg = messages.find((m: any) => !botIds.includes(m.user_id));
+  const replyTarget = Math.random() < 0.5 ? humanMsg : null;
+
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     max_tokens: 60,
-    temperature: 0.85,
+    temperature: 0.95,
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in "${room.title}". Pick up a thread and add YOUR moment. CRITICAL: Max 1-2 sentences, under 25 words. Like a text message. No greetings, no names, no questions.`,
+        content: `${bot.voice}\n\nYou're in "${room.title}".${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""} Sound like a real internet commenter — casual, natural. NOT poetic or whiny. Max 1-2 sentences, under 25 words. No greetings, no names.`,
       },
-      { role: "user", content: `Recent conversation:\n${context}\n\nRespond as ${bot.displayName}:` },
+      { role: "user", content: `Recent conversation:\n${context}` },
     ],
   });
 
-  const body = completion.choices[0]?.message?.content?.trim();
+  const body = completion.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
   if (!body) return;
 
   await getSupabase().from("messages").insert({
     room_id: room.id, user_id: bot.id, body,
     message_type: "user", moderation_status: "safe",
+    reply_to_id: replyTarget?.id || null,
   });
 }
