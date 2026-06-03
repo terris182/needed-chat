@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, isConversationStale } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, MESSAGE_LENGTH, isConversationStale } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock} It's been quiet.${replyTarget ? ` Replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}${staleWarning}\n\nShare something real from your experience or knowledge about this topic. Max 20 words, 1-2 sentences. No greetings, no names. Lowercase ok.\n\n${ANTI_HALLUCINATION}\n\n${ANTI_AI_POLISH}`,
+          content: `${bot.voice}\n\nYou're in a group chat called "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock} It's been quiet for a bit.${replyTarget ? ` Replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}${staleWarning}\n\nSay something to keep the conversation going.\n\n${ANTI_AI_POLISH}\n\n${ANTI_HALLUCINATION}\n\n${MESSAGE_LENGTH}`,
         },
         { role: "user", content: `Recent conversation:\n${context}` },
       ],

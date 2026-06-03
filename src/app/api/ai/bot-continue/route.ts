@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, isConversationStale } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, isConversationStale } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -157,12 +157,12 @@ export async function POST(request: Request) {
     : "";
 
   const behaviorInstructions: Record<string, string> = {
-    share_experience: "Share something from your own life or experience related to the topic. Be specific — a real moment, place, or detail.",
-    ask_followup: "Ask a genuine follow-up question about something someone said. Show real curiosity.",
-    different_angle: "Bring up a different aspect of the topic that nobody has mentioned yet. Use real facts if you have them.",
-    agree_and_build: "Agree with something someone said and add your own related thought or experience on top.",
-    gentle_disagree: "Offer a different perspective. Not confrontational — just 'I actually see it differently because...'",
-    react_short: "Give a brief, natural reaction to the conversation. 3-8 words. Something genuine, not performative.",
+    share_experience: "Mention something related from your life. Keep it casual — one sentence, mundane details are fine.",
+    ask_followup: "Ask a short follow-up about what someone said. Like a friend would — 'wait how long ago was that' not 'can you tell me more about that experience'",
+    different_angle: "Bring up something about this topic nobody mentioned yet. Don't ask permission, just say it.",
+    agree_and_build: "React to something someone said and add a quick related thought.",
+    gentle_disagree: "Push back on something. Keep it short — 'idk i see it differently' energy.",
+    react_short: "Just react. 2-5 words max. 'wait same' / 'oh no' / 'that tracks' / 'yeah exactly'",
   };
 
   const icebreakerContext = room.daily_prompt
@@ -175,17 +175,17 @@ export async function POST(request: Request) {
 
   const systemPrompt = `${bot.voice}
 
-You're in "${room.title}".${icebreakerContext}${factsBlock}
+You're in a group chat called "${room.title}".${icebreakerContext}${factsBlock}
 
-YOUR TASK: ${behaviorInstructions[behavior]}${replyContext}${staleWarning}
-
-${ANTI_HALLUCINATION}
+${behaviorInstructions[behavior]}${replyContext}${staleWarning}
 
 ${ANTI_AI_POLISH}
 
-${CONVERSATION_DIVERSITY}
+${ANTI_HALLUCINATION}
 
-Max 20 words, 1-2 sentences. Under 12 preferred. No greetings, no names.`;
+${MESSAGE_LENGTH}
+
+${CONVERSATION_DIVERSITY}`;
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",

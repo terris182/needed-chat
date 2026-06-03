@@ -83,10 +83,14 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
     }
   }
 
-  // Strip exclamation marks — real people in group chats don't use them much
+  // Strip exclamation marks
   body = body.replace(/!/g, ".");
-  // Clean up double periods from the replacement
   body = body.replace(/\.{2,}/g, ".").replace(/\.\s*\./g, ".");
+
+  // Strip AI-prose openers
+  body = body.replace(/^(I've been feeling|I've been thinking|I often think|I remember the day|I once sat|I keep thinking)\s/i, "");
+  // Strip trailing "you know?" / "right?" when tacked on
+  body = body.replace(/,?\s*(you know\??|right\??)\s*$/i, "");
 
   // Final cleanup
   body = body.replace(/\s{2,}/g, " ").trim();

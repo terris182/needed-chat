@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -121,12 +121,12 @@ export async function POST(request: Request) {
   const behavior = BEHAVIORS[Math.floor(Math.random() * BEHAVIORS.length)];
 
   const behaviorInstructions: Record<string, string> = {
-    share_experience: "Share something from your own life related to what's being discussed. Be specific.",
-    ask_followup: "Ask a genuine follow-up question about something in the conversation.",
-    different_angle: "Bring up a different aspect of the topic nobody has mentioned.",
-    agree_and_build: "Agree with something said and add your own related thought.",
-    gentle_disagree: "Offer a different perspective — not confrontational, just genuine.",
-    react_short: "Brief natural reaction, 3-8 words.",
+    share_experience: "Mention something related from your life. Keep it casual — one sentence max.",
+    ask_followup: "Ask a short follow-up. Like a friend — 'wait really?' not 'can you elaborate?'",
+    different_angle: "Bring up something nobody mentioned yet. Just say it.",
+    agree_and_build: "React and add a quick related thought.",
+    gentle_disagree: "Push back briefly. 'idk i see it differently' energy.",
+    react_short: "Just react. 2-5 words. 'wait same' / 'oh no' / 'that tracks'",
   };
 
   const replyInstruction = replyToUser && userMsg
@@ -148,15 +148,15 @@ export async function POST(request: Request) {
 
 You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}
 
-YOUR TASK: ${behaviorInstructions[behavior]}${replyInstruction}
-
-${ANTI_HALLUCINATION}
+${behaviorInstructions[behavior]}${replyInstruction}
 
 ${ANTI_AI_POLISH}
 
-${CONVERSATION_DIVERSITY}
+${ANTI_HALLUCINATION}
 
-Max 20 words, 1-2 sentences. Under 12 preferred. No greetings, no names.`,
+${MESSAGE_LENGTH}
+
+${CONVERSATION_DIVERSITY}`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

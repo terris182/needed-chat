@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { getActivePersonas, randomBots } from "@/lib/bots/personas";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, ICEBREAKER_MATCHING } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, ICEBREAKER_MATCHING, MESSAGE_LENGTH } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -102,13 +102,13 @@ async function seedConversation(
     ? `\n\nREAL FACTS about this topic (use these, don't make things up):\n${topicFacts}`
     : "";
 
-  const baseRules = `Write like you're texting a friend at midnight. Lowercase ok, casual, real. Share from your own experience or knowledge. Don't repeat what others said. No greetings, no names, no therapy-speak, no poetic language, no exclamation marks.
+  const baseRules = `${ANTI_AI_POLISH}
 
 ${ANTI_HALLUCINATION}
 
-${ANTI_AI_POLISH}
+${ICEBREAKER_MATCHING}
 
-${ICEBREAKER_MATCHING}`;
+${MESSAGE_LENGTH}`;
 
   // Backdate timestamps so it looks like convo started a few minutes ago
   const now = Date.now();

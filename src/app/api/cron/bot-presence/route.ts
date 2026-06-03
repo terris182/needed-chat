@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot, randomBots } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, MESSAGE_LENGTH } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -98,11 +98,11 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
     ? `The question is: "${room.daily_prompt}". Answer from your own experience.`
     : `React to "${room.title}" — share something real from your life or knowledge.`;
 
-  const baseRules = `Sound like a real person in a group chat. Casual, honest. Max 20 words. No greetings, no names, no therapy-speak, no poetic language, no exclamation marks. Lowercase ok.
+  const baseRules = `${ANTI_AI_POLISH}
 
 ${ANTI_HALLUCINATION}
 
-${ANTI_AI_POLISH}`;
+${MESSAGE_LENGTH}`;
 
   // Bot 1: answers directly
   const r1 = await getOpenAI().chat.completions.create({
