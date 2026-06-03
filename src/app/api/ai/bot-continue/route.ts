@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, isConversationStale } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -121,7 +122,11 @@ export async function POST(request: Request) {
     ? `\n\nREAL FACTS about this topic (reference these, don't make things up):\n${topicFacts}`
     : "";
 
-  const behavior = BEHAVIORS[Math.floor(Math.random() * BEHAVIORS.length)];
+  // Detect stale conversation loops — force a new angle if stuck
+  const stale = isConversationStale(recentMsgs);
+  const behavior = stale
+    ? "different_angle" // always break out of loops
+    : BEHAVIORS[Math.floor(Math.random() * BEHAVIORS.length)];
 
   // DIVERSIFIED reply targeting:
   // 30% reply to a human message, 25% reply to a bot message,
@@ -164,19 +169,23 @@ export async function POST(request: Request) {
     ? ` The room's topic/question is: "${room.daily_prompt}".`
     : "";
 
+  const staleWarning = stale
+    ? "\n\nWARNING: The conversation is stuck on one subtopic. You MUST bring up something completely different about this topic. Do NOT continue the current thread."
+    : "";
+
   const systemPrompt = `${bot.voice}
 
 You're in "${room.title}".${icebreakerContext}${factsBlock}
 
-YOUR TASK: ${behaviorInstructions[behavior]}${replyContext}
+YOUR TASK: ${behaviorInstructions[behavior]}${replyContext}${staleWarning}
 
-RULES:
-1. Sound like a real person in a group chat, not a commenter performing for likes.
-2. Be specific — reference real things, not vague generalities.
-3. Max 20 words, 1-2 sentences. Under 12 preferred.
-4. No therapy-speak, no poetic language, no exclamation marks.
-5. No greetings, no names. Lowercase ok.
-6. If you reference the topic, use REAL facts from the context above.`;
+${ANTI_HALLUCINATION}
+
+${ANTI_AI_POLISH}
+
+${CONVERSATION_DIVERSITY}
+
+Max 20 words, 1-2 sentences. Under 12 preferred. No greetings, no names.`;
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",

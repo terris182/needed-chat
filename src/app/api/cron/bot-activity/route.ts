@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, isConversationStale } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -94,11 +95,16 @@ export async function GET(request: Request) {
       })
       .join("\n");
 
-    // Diversified targeting
+    // Diversified targeting — if stale, don't reply to anyone, bring new angle
+    const stale = isConversationStale(lastMsgs);
     const humanMsg = lastMsgs.find((m: any) => !botIds.includes(m.user_id));
     const botMsg = lastMsgs.find((m: any) => botIds.includes(m.user_id) && m.user_id !== bot.id);
     const roll = Math.random();
-    const replyTarget = roll < 0.3 ? humanMsg : roll < 0.5 ? botMsg : null;
+    const replyTarget = stale ? null : (roll < 0.3 ? humanMsg : roll < 0.5 ? botMsg : null);
+
+    const staleWarning = stale
+      ? "\n\nThe conversation has been stuck on one subtopic. Bring up something COMPLETELY DIFFERENT about this topic."
+      : "";
 
     const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
@@ -107,7 +113,7 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock} It's been quiet.${replyTarget ? ` Replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}\n\nShare something real from your experience or knowledge about this topic. Be specific. Max 20 words, 1-2 sentences. No greetings, no names, no therapy-speak. Lowercase ok.`,
+          content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock} It's been quiet.${replyTarget ? ` Replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}${staleWarning}\n\nShare something real from your experience or knowledge about this topic. Max 20 words, 1-2 sentences. No greetings, no names. Lowercase ok.\n\n${ANTI_HALLUCINATION}\n\n${ANTI_AI_POLISH}`,
         },
         { role: "user", content: `Recent conversation:\n${context}` },
       ],

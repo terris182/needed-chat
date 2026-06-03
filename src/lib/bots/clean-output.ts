@@ -12,6 +12,16 @@ const BANNED_PHRASES = [
   "peak self-care", "emotional detox", "gateway plants",
   "instant success", "pure magic", "top tier",
   "vibe shift", "energy shift",
+  // AI-polished phrasing that reads as generated
+  "something magical about", "there's something about",
+  "party in my mouth", "chef's kiss", "hits just right",
+  "resonates with", "speaks volumes", "sends chills",
+  "warms my heart", "fills my soul", "fuels my soul",
+  "brings me joy", "sparks joy", "core memory",
+  "main character", "whole vibe", "living rent free",
+  "can we talk about", "can we appreciate",
+  "ngl", "lowkey", "highkey", "periodt", "bestie",
+  "it's giving", "understood the assignment",
 ];
 
 const MAX_WORDS = 25;
@@ -72,6 +82,11 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
       body = body.replace(/^[,.\s—–-]+/, "").trim();
     }
   }
+
+  // Strip exclamation marks — real people in group chats don't use them much
+  body = body.replace(/!/g, ".");
+  // Clean up double periods from the replacement
+  body = body.replace(/\.{2,}/g, ".").replace(/\.\s*\./g, ".");
 
   // Final cleanup
   body = body.replace(/\s{2,}/g, " ").trim();

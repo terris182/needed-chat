@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -149,12 +150,13 @@ You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".
 
 YOUR TASK: ${behaviorInstructions[behavior]}${replyInstruction}
 
-RULES:
-1. Sound like a real person in a group chat — not performing, just talking.
-2. Be specific — reference real things from the topic facts above.
-3. Max 20 words, 1-2 sentences. Under 12 preferred.
-4. No therapy-speak, no poetic language.
-5. No greetings, no names. Lowercase ok.`,
+${ANTI_HALLUCINATION}
+
+${ANTI_AI_POLISH}
+
+${CONVERSATION_DIVERSITY}
+
+Max 20 words, 1-2 sentences. Under 12 preferred. No greetings, no names.`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],
