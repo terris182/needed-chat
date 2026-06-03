@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
+import { cleanBotOutput } from "@/lib/bots/clean-output";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -165,11 +166,8 @@ GOOD: "counterpoint: cereal for dinner slaps"`,
     ],
   });
 
-  let body = completion.choices[0]?.message?.content?.trim();
-  if (!body) return NextResponse.json({ ok: true, skipped: "empty response" });
-
-  body = body.replace(/^[—–-]+\s*/, "");
-  body = body.replace(/^["'](.*)["']$/, "$1");
+  const raw = completion.choices[0]?.message?.content;
+  const body = cleanBotOutput(raw);
   if (!body) return NextResponse.json({ ok: true, skipped: "cleaned to empty" });
 
   await getSupabase().from("messages").insert({

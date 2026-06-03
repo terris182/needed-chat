@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot, randomBots } from "@/lib/bots/personas";
+import { cleanBotOutput } from "@/lib/bots/clean-output";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -93,7 +94,7 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
     model: "gpt-4o-mini", max_tokens: 25, temperature: 0.95,
     messages: [{ role: "system", content: `${bots[0].voice}\n\nYou're in "${room.title}". ${questionContext}\n\nCRITICAL: Sound like a real Reddit/Twitter comment. NOT poetic, NOT sad. Casual, blunt, maybe funny. BANNED: "yeah," "oof," "same," "that's real," "felt like," "vibes," "valid," "underrated," exclamation marks, therapy-speak. HARD LIMIT: Max 12 words. No greetings, no names.` }],
   });
-  const body1 = r1.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
+  const body1 = cleanBotOutput(r1.choices[0]?.message?.content);
   if (!body1) return;
   const { data: msg1 } = await getSupabase().from("messages").insert({ room_id: room.id, user_id: bots[0].id, body: body1, message_type: "user", moderation_status: "safe" }).select("id").single();
 
@@ -108,7 +109,7 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
       { role: "user", content: `Someone said: ${body1}` },
     ],
   });
-  const body2 = r2.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
+  const body2 = cleanBotOutput(r2.choices[0]?.message?.content);
   if (!body2) return;
   const { data: msg2 } = await getSupabase().from("messages").insert({
     room_id: room.id, user_id: bots[1].id, body: body2,
@@ -127,7 +128,7 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
         { role: "user", content: `Comments so far:\n- ${body1}\n- ${body2}` },
       ],
     });
-    const body3 = r3.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
+    const body3 = cleanBotOutput(r3.choices[0]?.message?.content);
     if (body3) {
       // Bot 3 sometimes replies to bot 1, sometimes to bot 2, sometimes neither
       const pickReply = Math.random();
@@ -174,7 +175,7 @@ async function continueExistingConvo(room: any, messages: any[], botIds: string[
     ],
   });
 
-  const body = completion.choices[0]?.message?.content?.trim()?.replace(/^["'](.*)["']$/, "$1");
+  const body = cleanBotOutput(completion.choices[0]?.message?.content);
   if (!body) return;
 
   await getSupabase().from("messages").insert({

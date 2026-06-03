@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
+import { cleanBotOutput } from "@/lib/bots/clean-output";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -102,9 +103,7 @@ export async function GET(request: Request) {
       ],
     });
 
-    let body = completion.choices[0]?.message?.content?.trim();
-    if (!body) continue;
-    body = body.replace(/^[—–-]+\s*/, "").replace(/^["'](.*)["']$/, "$1");
+    const body = cleanBotOutput(completion.choices[0]?.message?.content);
     if (!body) continue;
 
     await getSupabase().from("messages").insert({
