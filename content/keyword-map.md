@@ -11,7 +11,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 - how to cope with loneliness at night — live (lonely-at-night)
 - what to do when you have no one to talk to — live (no-one-to-talk-to)
 - feeling lonely even when surrounded by people — live (lonely-in-a-crowd)
-- how to deal with loneliness after moving to a new city — queued
+- how to deal with loneliness after moving to a new city — queued # priority
 - why do i feel so alone all the time — queued
 - how to feel less alone when living by yourself — queued
 
@@ -33,7 +33,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 - how to calm down when anxiety hits at night — live (anxiety-at-3am)
 - what to do when you can't stop overthinking at night — live (cant-stop-overthinking)
 - how to quiet racing thoughts before sleep — queued
-- waking up at 3am with anxiety — queued
+- waking up at 3am with anxiety — queued # priority
 - how to ground yourself during a panic moment — queued
 
 ## Cluster: Everyday hard-to-say things
@@ -45,7 +45,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 
 ## Cluster: Burnout & overwhelm
 - how to cope when everything feels like too much — live (everything-too-much)
-- what to do when you're exhausted but can't rest — queued
+- what to do when you're exhausted but can't rest — queued # priority
 - feeling overwhelmed and not knowing where to start — queued
 - how to get through a day when you have no motivation — queued
 
@@ -57,7 +57,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 
 ## Cluster: Late-night / 3am intent (high emotional charge, gentle)
 - who can i talk to at 2am when i can't sleep — live (talk-to-someone-at-2am)
-- is there anyone to talk to right now anonymously — queued
+- is there anyone to talk to right now anonymously — queued # priority
 - free anonymous place to talk about feelings — queued
 - somewhere to vent without being judged — queued
 
