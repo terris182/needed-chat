@@ -12,7 +12,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 - what to do when you have no one to talk to — live (no-one-to-talk-to)
 - feeling lonely even when surrounded by people — live (lonely-in-a-crowd)
 - how to deal with loneliness after moving to a new city — live (lonely-new-city)
-- why do i feel so alone all the time — queued
+- why do i feel so alone all the time — queued # priority
 - how to feel less alone when living by yourself — queued
 
 ## Cluster: Friendship & feeling left behind
@@ -32,7 +32,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 ## Cluster: Anxiety & racing thoughts
 - how to calm down when anxiety hits at night — live (anxiety-at-3am)
 - what to do when you can't stop overthinking at night — live (cant-stop-overthinking)
-- how to quiet racing thoughts before sleep — queued
+- how to quiet racing thoughts before sleep — queued # priority
 - waking up at 3am with anxiety — live (waking-up-3am-anxiety)
 - how to ground yourself during a panic moment — queued
 
@@ -58,8 +58,8 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 ## Cluster: Late-night / 3am intent (high emotional charge, gentle)
 - who can i talk to at 2am when i can't sleep — live (talk-to-someone-at-2am)
 - is there anyone to talk to right now anonymously — live (anonymous-someone-to-talk-to)
-- free anonymous place to talk about feelings — queued
-- somewhere to vent without being judged — queued
+- free anonymous place to talk about feelings — queued # priority
+- somewhere to vent without being judged — queued # priority
 
 ## Cluster: Specific life moments
 - how to cope with loneliness during the holidays — queued
