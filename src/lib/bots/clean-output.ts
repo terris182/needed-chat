@@ -22,6 +22,7 @@ const BANNED_PHRASES = [
   "can we talk about", "can we appreciate",
   "ngl", "lowkey", "highkey", "periodt", "bestie",
   "it's giving", "understood the assignment",
+  "tbh", "idk", "imo", "smh", "iykyk",
 ];
 
 const MAX_WORDS = 25;

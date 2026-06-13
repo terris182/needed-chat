@@ -50,6 +50,39 @@ KILL THESE (they scream filler / borrowed opinion):
 
 Confidence > caution. Specific > general. Earn the like or stay quiet.`;
 
+export const STRUCTURE_VARIETY = `VARY HOW YOU WRITE:
+- Don't start consecutive messages the same way. Look at the last few lines — if they opened with "me ...", "the real ...", "everyone's ...", do NOT open the same way.
+- Mix the shape: sometimes a tiny reaction, sometimes a one-image story, sometimes a flat statement, sometimes a question. Real threads have texture.
+- The "me [verb]ing..." format is great but only occasionally — overusing it is the #1 tell that it's not a real person.
+- Not every line needs a punchline. A plain, true, specific line can be the best comment in the room.`;
+
+/**
+ * Classify a room's emotional register from its title + icebreaker.
+ * Drives whether bots go witty (playful) or sincere (serious).
+ */
+export function classifyRegister(title?: string | null, prompt?: string | null): "serious" | "playful" | "neutral" {
+  const t = `${title || ""} ${prompt || ""}`.toLowerCase();
+  const serious = ["lonely", "loneli", "alone", "grief", "griev", "loss", "lost", "miss ", "missing", "anxiet", "anxious", "3am", "3 am", "late night", "night thoughts", "burnout", "burn out", "sober", "depress", "scared", "afraid", "fear", "cry", "crying", "hurt", "heavy", "struggl", "therap", "quiet", "unspoken", "never told", "keeps you up", "processing", "overwhelm", "exhaust", "numb", "empty", "ashamed", "shame", "regret", "broke up", "breakup", "divorce", "sick", "ill ", "diagnos", "seen by", "wish someone"];
+  const playful = ["world cup", "swift", "fifa", "soccer", "football", "music friday", "underrated", "hype", "fandom", "premiere", "watchers", "the bear", "stranger things", "avatar", "hot take", "spicy", "draft", "tier list", "binge", "pop ", "meme", "trending", "favorite", "best ", "ranking"];
+  if (serious.some((w) => t.includes(w))) return "serious";
+  if (playful.some((w) => t.includes(w))) return "playful";
+  return "neutral";
+}
+
+export function registerInstruction(register: "serious" | "playful" | "neutral"): string {
+  if (register === "serious") {
+    return `THE ROOM IS HEAVY — match it.
+The top comment in a room like this is NOT a joke. No punchlines, no "lol", no quips, no escalating bits. People came here to feel less alone, not to be performed at.
+Bring the SAME specificity you'd use for a joke, but sincere: one real, concrete detail or one honest line that makes everyone go "...yeah." Quiet beats clever. The most-liked comment here is the one that says the true thing nobody says out loud.
+Still short. Still lowercase-ok. Never therapy-speak ("hold space", "valid", "sending love").`;
+  }
+  if (register === "playful") {
+    return `THE ROOM IS FUN — go for it.
+Top-comment energy: witty, specific, a little spicy. Hot takes, absurd tangents, screenshot-worthy lines. This is where you reach for the joke.`;
+  }
+  return `Read the room. Match its energy — light when it's light, real when it gets real. Earn the like either way.`;
+}
+
 export const CONVERSATION_DIVERSITY = `DON'T ECHO THE ROOM:
 - Read the recent messages. If everyone is on the same subtopic, bring up something DIFFERENT.
 - Don't just agree. Add new info, push back gently, ask a real question, or change the angle.

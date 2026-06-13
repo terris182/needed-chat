@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, isConversationStale } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction, isConversationStale } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -173,11 +173,26 @@ export async function POST(request: Request) {
     ? "\n\nWARNING: The conversation is stuck on one subtopic. You MUST bring up something completely different about this topic. Do NOT continue the current thread."
     : "";
 
+  const register = classifyRegister(room.title, room.daily_prompt);
+
+  // In heavy rooms, joke-forward behaviors become sincere ones
+  const seriousBehavior: Record<string, string> = {
+    share_experience: "Share one real, specific detail from your own life that fits — sincere, not a joke. The honest small thing.",
+    ask_followup: "Respond to what someone said with genuine attention. Reflect back the specific thing they said, or gently add to it. No survey questions.",
+    different_angle: "Name a true thing about this nobody's said yet. Quiet and plain, not a hot take.",
+    agree_and_build: "Sit with what someone said and add one honest line — solidarity, not escalation.",
+    gentle_disagree: "Offer a softer, truer reframe of what someone said. Conviction, not contrarianism. No jokes.",
+    react_short: "One short, sincere line — a real 'i feel that' said in your own specific words. Never 'so true' or a quip.",
+  };
+  const behaviorText = register === "serious" ? seriousBehavior[behavior] : behaviorInstructions[behavior];
+
   const systemPrompt = `${bot.voice}
 
 You're in a group chat called "${room.title}".${icebreakerContext}${factsBlock}
 
-${behaviorInstructions[behavior]}${replyContext}${staleWarning}
+${registerInstruction(register)}
+
+${behaviorText}${replyContext}${staleWarning}
 
 ${TOP_COMMENT_STANDARD}
 
@@ -186,6 +201,8 @@ ${ANTI_AI_POLISH}
 ${ANTI_HALLUCINATION}
 
 ${MESSAGE_LENGTH}
+
+${STRUCTURE_VARIETY}
 
 ${CONVERSATION_DIVERSITY}`;
 

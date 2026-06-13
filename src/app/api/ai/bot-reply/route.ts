@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -133,6 +133,17 @@ export async function POST(request: Request) {
     ? `\n\nYou're responding to what ${userName} just said: "${userMsg.body}". Engage with their specific point.`
     : "\n\nAdd to the conversation naturally — don't fixate on just one person.";
 
+  const register = classifyRegister(room.title, room.daily_prompt);
+  const seriousBehavior: Record<string, string> = {
+    share_experience: "Share one real, specific detail from your own life that fits — sincere, not a joke.",
+    ask_followup: "Respond with genuine attention. Reflect the specific thing they said. No survey questions.",
+    different_angle: "Name a true thing nobody's said yet. Quiet and plain, not a hot take.",
+    agree_and_build: "Sit with what they said and add one honest line — solidarity, not escalation.",
+    gentle_disagree: "Offer a softer, truer reframe. Conviction, not contrarianism. No jokes.",
+    react_short: "One short, sincere line in your own specific words. Never 'so true' or a quip.",
+  };
+  const behaviorText = register === "serious" ? seriousBehavior[behavior] : behaviorInstructions[behavior];
+
   // Typing delay
   const delay = 2000 + Math.random() * 2000;
   await new Promise((r) => setTimeout(r, delay));
@@ -148,7 +159,9 @@ export async function POST(request: Request) {
 
 You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}
 
-${behaviorInstructions[behavior]}${replyInstruction}
+${registerInstruction(register)}
+
+${behaviorText}${replyInstruction}
 
 ${TOP_COMMENT_STANDARD}
 
@@ -157,6 +170,8 @@ ${ANTI_AI_POLISH}
 ${ANTI_HALLUCINATION}
 
 ${MESSAGE_LENGTH}
+
+${STRUCTURE_VARIETY}
 
 ${CONVERSATION_DIVERSITY}`,
       },
