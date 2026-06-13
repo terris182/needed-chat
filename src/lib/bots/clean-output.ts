@@ -34,6 +34,15 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
   // Take only the first line (no multi-line responses)
   body = body.split("\n")[0].trim();
 
+  // Strip any leading speaker handle the model echoed from the context format
+  // (e.g. "warm-harbor-14: actual message" or doubled "bright-dawn-22: bright-dawn-22: ...").
+  // Bot handles are slug-style: word(-word)+-digits. Strip one or more such prefixes.
+  let prevHandle: string;
+  do {
+    prevHandle = body;
+    body = body.replace(/^[a-z0-9]+(?:-[a-z0-9]+)+:\s*/i, "").trim();
+  } while (body !== prevHandle && body.length > 0);
+
   // Remove leading em-dashes, quotes
   body = body.replace(/^[—–\-]+\s*/, "");
   body = body.replace(/^["'](.*?)["']$/, "$1");
@@ -73,11 +82,12 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
     }
   }
 
-  // Check for banned phrases
-  const lower = body.toLowerCase();
+  // Check for banned phrases — WORD-BOUNDARY matched so we never corrupt words
+  // that merely contain a banned token as a substring (e.g. "ngl" inside "single").
   for (const phrase of BANNED_PHRASES) {
-    if (lower.includes(phrase)) {
-      const regex = new RegExp(phrase, "gi");
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`\\b${escaped}\\b`, "gi");
+    if (regex.test(body)) {
       body = body.replace(regex, "").replace(/\s{2,}/g, " ").trim();
       body = body.replace(/^[,.\s—–-]+/, "").trim();
     }
@@ -92,7 +102,17 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
   // Strip trailing "you know?" / "right?" when tacked on
   body = body.replace(/,?\s*(you know\??|right\??)\s*$/i, "");
 
-  // Final cleanup
+  // Strip hedge/filler openers that read as low-effort or borrowed-opinion
+  body = body.replace(/^(idk,?\s*(i\s+(see it differently|mean|guess|think))?|tbh,?|i mean,?|i guess,?|fair,? but( also)?,?|ok,? but( also)?,?|wait,? but also,?|honestly,?|like,?)\s+/i, "");
+  body = body.replace(/\s{2,}/g, " ").trim();
+
+  // Reject pure-filler / empty-agreement whole messages (zero-like comments)
+  const fillerOnly = /^(so true|exactly|facts|real|this|right\??|same|valid|mood|word|fr+|ikr|yep|yeah exactly|that tracks|big mood|no thoughts|preach)\.?$/i;
+  if (fillerOnly.test(body.trim())) return null;
+
+  // Tidy stray spaces before punctuation and dangling trailing punctuation/commas
+  body = body.replace(/\s+([.,!?])/g, "$1");
+  body = body.replace(/[\s,]+$/g, "").trim();
   body = body.replace(/\s{2,}/g, " ").trim();
 
   // Reject if too short after cleanup

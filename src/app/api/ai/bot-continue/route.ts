@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, isConversationStale } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, isConversationStale } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -157,12 +157,12 @@ export async function POST(request: Request) {
     : "";
 
   const behaviorInstructions: Record<string, string> = {
-    share_experience: "Mention something related from your life. Keep it casual — one sentence, mundane details are fine.",
-    ask_followup: "Ask a short follow-up about what someone said. Like a friend would — 'wait how long ago was that' not 'can you tell me more about that experience'",
-    different_angle: "Bring up something about this topic nobody mentioned yet. Don't ask permission, just say it.",
-    agree_and_build: "React to something someone said and add a quick related thought.",
-    gentle_disagree: "Push back on something. Keep it short — 'idk i see it differently' energy.",
-    react_short: "Just react. 2-5 words max. 'wait same' / 'oh no' / 'that tracks' / 'yeah exactly'",
+    share_experience: "Drop ONE oddly specific detail from your own life that nails the topic — the kind that makes people go 'it me'. Concrete image, not a vague feeling.",
+    ask_followup: "React to what someone said and add a sharp new angle. If you ask anything, make it specific and pointed — never a generic 'why tho' or 'what about you'.",
+    different_angle: "Say the thing about this topic nobody's mentioned yet. State it like a fact. No permission-asking.",
+    agree_and_build: "Take what someone said and ESCALATE it — funnier, more specific, or one step further. Don't just agree.",
+    gentle_disagree: "Drop a confident counter-take. State it plainly — no 'idk', no 'i see it differently'. The hot take that gets replies.",
+    react_short: "One punchy line under 8 words that actually lands — a joke, a callout, or a vivid image. Not 'so true' or 'exactly'.",
   };
 
   const icebreakerContext = room.daily_prompt
@@ -178,6 +178,8 @@ export async function POST(request: Request) {
 You're in a group chat called "${room.title}".${icebreakerContext}${factsBlock}
 
 ${behaviorInstructions[behavior]}${replyContext}${staleWarning}
+
+${TOP_COMMENT_STANDARD}
 
 ${ANTI_AI_POLISH}
 
@@ -200,6 +202,15 @@ ${CONVERSATION_DIVERSITY}`;
   const raw = completion.choices[0]?.message?.content;
   const body = cleanBotOutput(raw);
   if (!body) return NextResponse.json({ pace, posted: false, reason: "cleaned to empty" });
+
+  // Reject near-duplicate of any recent message (bots sometimes echo the context verbatim)
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const bodyNorm = norm(body);
+  const isEcho = recentMsgs.some((m: any) => {
+    const mn = norm(m.body || "");
+    return mn === bodyNorm || (bodyNorm.length > 12 && (mn.includes(bodyNorm) || bodyNorm.includes(mn)));
+  });
+  if (isEcho) return NextResponse.json({ pace, posted: false, reason: "duplicate of recent message" });
 
   await getSupabase().from("messages").insert({
     room_id: room.id,

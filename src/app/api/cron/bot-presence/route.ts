@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot, randomBots } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, MESSAGE_LENGTH } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, MESSAGE_LENGTH, TOP_COMMENT_STANDARD } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -98,7 +98,9 @@ async function seedEmptyRoom(room: any, personas: any[], botIds: string[]) {
     ? `The question is: "${room.daily_prompt}". Answer from your own experience.`
     : `React to "${room.title}" — share something real from your life or knowledge.`;
 
-  const baseRules = `${ANTI_AI_POLISH}
+  const baseRules = `${TOP_COMMENT_STANDARD}
+
+${ANTI_AI_POLISH}
 
 ${ANTI_HALLUCINATION}
 
@@ -197,7 +199,7 @@ async function continueExistingConvo(room: any, messages: any[], botIds: string[
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""}\n\nShare something real — from your experience or knowledge about the topic. Be specific. Max 20 words, 1-2 sentences. No greetings, no names, no therapy-speak. Lowercase ok.`,
+        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""}\n\nShare something real and specific — the kind of line that would be a top comment. No greetings, no names, no therapy-speak. Lowercase ok.\n\n${TOP_COMMENT_STANDARD}\n\n${ANTI_AI_POLISH}\n\n${MESSAGE_LENGTH}`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

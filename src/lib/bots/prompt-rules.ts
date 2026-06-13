@@ -32,6 +32,24 @@ export const MESSAGE_LENGTH = `MESSAGE LENGTH — VARY IT:
 - Max 20 words. Shorter is almost always better.
 - Never write a paragraph. If your message has a comma AND a period, it's too long.`;
 
+export const TOP_COMMENT_STANDARD = `THE BAR — write a TOP comment, not filler:
+Every message should be the kind of comment that gets the MOST likes under a post — on X, YouTube, TikTok, or IG. If it's forgettable, don't send it.
+
+A top comment does ONE of these well:
+- Names an oddly specific relatable detail ("me practicing the text then sending 'k'")
+- Lands a self-roast or dry joke in the first few words
+- Points out the one thing everyone else missed
+- Drops a confident hot take, no hedging
+- Escalates the last message into something funnier
+
+KILL THESE (they scream filler / borrowed opinion):
+- Hedge openers: "idk", "tbh", "i mean", "i guess", "fair but", "i see it differently", "ok but", "wait but also"
+- Empty agreement: "so true", "exactly", "right??", "this", "facts", "real" as a whole message
+- Generic survey questions: "why is that?", "what about you?", "does it really help though?"
+- Restating what the last person said with no new spin
+
+Confidence > caution. Specific > general. Earn the like or stay quiet.`;
+
 export const CONVERSATION_DIVERSITY = `DON'T ECHO THE ROOM:
 - Read the recent messages. If everyone is on the same subtopic, bring up something DIFFERENT.
 - Don't just agree. Add new info, push back gently, ask a real question, or change the angle.

@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -121,12 +121,12 @@ export async function POST(request: Request) {
   const behavior = BEHAVIORS[Math.floor(Math.random() * BEHAVIORS.length)];
 
   const behaviorInstructions: Record<string, string> = {
-    share_experience: "Mention something related from your life. Keep it casual — one sentence max.",
-    ask_followup: "Ask a short follow-up. Like a friend — 'wait really?' not 'can you elaborate?'",
-    different_angle: "Bring up something nobody mentioned yet. Just say it.",
-    agree_and_build: "React and add a quick related thought.",
-    gentle_disagree: "Push back briefly. 'idk i see it differently' energy.",
-    react_short: "Just react. 2-5 words. 'wait same' / 'oh no' / 'that tracks'",
+    share_experience: "Drop ONE oddly specific detail from your own life that nails the topic — the 'it me' kind. Concrete image, not a vague feeling.",
+    ask_followup: "React to what they said and add a sharp new angle. If you ask anything, make it specific and pointed — never a generic 'why tho' or 'what about you'.",
+    different_angle: "Say the thing nobody's mentioned yet. State it like a fact. No permission-asking.",
+    agree_and_build: "Take what they said and ESCALATE it — funnier, more specific, or one step further. Don't just agree.",
+    gentle_disagree: "Drop a confident counter-take. State it plainly — no 'idk', no 'i see it differently'.",
+    react_short: "One punchy line under 8 words that lands — a joke, a callout, or a vivid image. Not 'so true' or 'exactly'.",
   };
 
   const replyInstruction = replyToUser && userMsg
@@ -149,6 +149,8 @@ export async function POST(request: Request) {
 You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}
 
 ${behaviorInstructions[behavior]}${replyInstruction}
+
+${TOP_COMMENT_STANDARD}
 
 ${ANTI_AI_POLISH}
 
