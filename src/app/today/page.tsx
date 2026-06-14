@@ -39,10 +39,12 @@ export default function TodayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [myRooms, setMyRooms] = useState<MyRoom[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { setLoading(false); return; }
 
       // Load pending invites
       const { data: inv } = await supabase
@@ -62,6 +64,7 @@ export default function TodayPage() {
         .eq("engagement_status", "active")
         .limit(10);
       if (rooms) setMyRooms(rooms as unknown as MyRoom[]);
+      setLoading(false);
     }
     load();
   }, [supabase]);
@@ -70,6 +73,7 @@ export default function TodayPage() {
     e.preventDefault();
     if (!text.trim() || submitting) return;
     setSubmitting(true);
+    setErrorMsg(null);
 
     try {
       // Step 1: Classify
@@ -82,6 +86,7 @@ export default function TodayPage() {
 
       if (classification.error) {
         console.error(classification.error);
+        setErrorMsg("Something went wrong on our end. Give it another try in a moment.");
         setSubmitting(false);
         return;
       }
@@ -118,6 +123,7 @@ export default function TodayPage() {
       router.push("/recommendations");
     } catch (error) {
       console.error("Submit error:", error);
+      setErrorMsg("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -174,10 +180,21 @@ export default function TodayPage() {
             <button
               type="submit"
               disabled={!text.trim() || submitting}
-              className="mt-2 w-full rounded-md bg-accent text-white font-medium py-2.5 text-sm hover:bg-accent-hover transition-colors disabled:opacity-50"
+              className="mt-2 w-full rounded-md bg-accent text-white font-medium py-2.5 text-sm hover:bg-accent-hover transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
             >
+              {submitting && (
+                <svg className="animate-spin h-4 w-4 text-white/90" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+              )}
               {submitting ? "Finding your room..." : "Find my room"}
             </button>
+            {errorMsg && (
+              <p role="alert" className="mt-2 text-xs text-red-500">
+                {errorMsg}
+              </p>
+            )}
           </form>
         </section>
 
@@ -212,7 +229,13 @@ export default function TodayPage() {
         {/* Active rooms */}
         <section>
           <h2 className="text-sm font-medium text-text-secondary mb-2">Your rooms</h2>
-          {myRooms.length > 0 ? (
+          {loading ? (
+            <div className="space-y-2">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-16 rounded-lg bg-surface border border-border-light animate-pulse" />
+              ))}
+            </div>
+          ) : myRooms.length > 0 ? (
             <div className="space-y-2">
               {myRooms.map((mr) => (
                 <RoomTile

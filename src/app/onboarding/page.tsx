@@ -26,6 +26,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("age");
   const [username, setUsername] = useState(generateUsername());
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   function reroll() {
     setUsername(generateUsername());
@@ -33,23 +34,34 @@ export default function OnboardingPage() {
 
   async function handleComplete() {
     setLoading(true);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    setErrorMsg(null);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Session expired or missing — send them back to sign in instead of hanging.
+        window.location.href = "/auth";
+        return;
+      }
 
-    // Create profile (upsert to handle re-onboarding)
-    await supabase.from("users_profile").upsert({
-      id: user.id,
-      username,
-    });
+      // Create profile (upsert to handle re-onboarding)
+      const { error: profileError } = await supabase.from("users_profile").upsert({
+        id: user.id,
+        username,
+      });
+      if (profileError) throw profileError;
 
-    // Track activation event
-    await supabase.from("activation_events").insert({
-      user_id: user.id,
-      event: "completed_onboarding",
-    });
+      // Track activation event (non-critical — don't block on failure)
+      await supabase.from("activation_events").insert({
+        user_id: user.id,
+        event: "completed_onboarding",
+      });
 
-    window.location.href = "/today";
+      window.location.href = "/today";
+    } catch {
+      setErrorMsg("Something went wrong saving your name. Please try again.");
+      setLoading(false);
+    }
   }
 
   if (step === "age") {
@@ -97,6 +109,20 @@ export default function OnboardingPage() {
             That&apos;s me
           </Button>
         </div>
+
+        {errorMsg && (
+          <p role="alert" className="text-xs text-red-500">
+            {errorMsg}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setStep("age")}
+          className="text-xs text-text-tertiary hover:text-text-secondary"
+        >
+          &larr; Back
+        </button>
       </div>
     </main>
   );

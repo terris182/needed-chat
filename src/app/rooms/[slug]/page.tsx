@@ -48,21 +48,44 @@ export default function RoomPage() {
   const botPaceRef = useRef<"active" | "slow" | "stopped">("active");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true);
+  const [loadingRoom, setLoadingRoom] = useState(true);
+  const [toast, setToast] = useState<string | null>(null);
+  const [myUsername, setMyUsername] = useState<string>("");
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
   }, []);
 
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    // "near bottom" if within ~120px of the end
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, []);
+
+  // Only auto-scroll when the user is already at the bottom — don't yank them
+  // away while they're reading older messages.
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (atBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   // Load room + user + initial messages
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { setLoadingRoom(false); return; }
       setUserId(user.id);
+      supabase
+        .from("users_profile")
+        .select("username")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }: any) => { if (data?.username) setMyUsername(data.username); });
 
       const { data: roomData } = await supabase
         .from("rooms")
@@ -123,6 +146,7 @@ export default function RoomPage() {
           }
         }
       }
+      setLoadingRoom(false);
     }
     init();
   }, [slug, supabase]);
@@ -160,7 +184,20 @@ export default function RoomPage() {
               .single();
             if (replyMsg) msg._replyTarget = replyMsg;
           }
-          setMessages((prev) => [...prev, msg as Message]);
+          setMessages((prev) => {
+            // Already have this message (avoid double-insert)
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            // Reconcile an optimistic placeholder from this user with the same text
+            const idx = prev.findIndex(
+              (m) => (m as any)._optimistic && m.user_id === msg.user_id && m.body === msg.body
+            );
+            if (idx !== -1) {
+              const copy = [...prev];
+              copy[idx] = msg as Message;
+              return copy;
+            }
+            return [...prev, msg as Message];
+          });
         }
       )
       .subscribe();
@@ -254,8 +291,36 @@ export default function RoomPage() {
     setSending(true);
     const body = newMessage.trim();
     const replyToId = replyingTo?.id || null;
+    const replySnapshot = replyingTo;
+    const draftSnapshot = newMessage;
     setNewMessage("");
     setReplyingTo(null);
+
+    // Optimistic echo — show the message instantly so sending feels immediate.
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: any = {
+      id: tempId,
+      body,
+      message_type: "user",
+      moderation_status: "safe",
+      created_at: new Date().toISOString(),
+      user_id: userId,
+      reply_to_id: replyToId,
+      users_profile: { username: myUsername || "you" },
+      _optimistic: true,
+      _replyTarget: replySnapshot
+        ? { id: replySnapshot.id, body: replySnapshot.body, users_profile: { username: replySnapshot.username } }
+        : undefined,
+    };
+    atBottomRef.current = true;
+    setMessages((prev) => [...prev, optimistic as Message]);
+
+    const rollback = (msg: string) => {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId && !(m as any)._blockedId));
+      setNewMessage((cur) => cur || draftSnapshot);
+      if (replySnapshot) setReplyingTo(replySnapshot);
+      showToast(msg);
+    };
 
     // Track user activity — resets bot pace to active
     lastUserActivityRef.current = new Date().toISOString();
@@ -291,7 +356,7 @@ export default function RoomPage() {
 
     if (room.ad_safety_rating !== "green") {
       // YELLOW/RED: pre-publish moderation
-      const { data: msg } = await supabase
+      const { data: msg, error } = await supabase
         .from("messages")
         .insert({
           room_id: room.id,
@@ -303,7 +368,13 @@ export default function RoomPage() {
         .select("id")
         .single();
 
-      if (msg) {
+      if (error || !msg) {
+        rollback("Couldn't send — check your connection and try again.");
+        setSending(false);
+        return;
+      }
+
+      try {
         const res = await fetch("/api/ai/moderate-message", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -317,11 +388,19 @@ export default function RoomPage() {
 
         if (modResult.status === "blocked") {
           await supabase.from("messages").delete().eq("id", msg.id);
+          // Remove the optimistic + any echoed copy, and let the user know why.
+          setMessages((prev) => prev.filter((m) => m.id !== tempId && m.id !== msg.id));
+          setNewMessage((cur) => cur || draftSnapshot);
+          showToast("This is a sensitive room — that message touched on something it filters, so it wasn't posted.");
+          setSending(false);
+          return;
         }
+      } catch {
+        // Moderation call failed but the message is saved as pending — leave it.
       }
     } else {
       // GREEN: post-publish, async moderation
-      const { data: msg } = await supabase
+      const { data: msg, error } = await supabase
         .from("messages")
         .insert({
           room_id: room.id,
@@ -333,17 +412,21 @@ export default function RoomPage() {
         .select("id")
         .single();
 
-      if (msg) {
-        fetch("/api/ai/moderate-message", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message_id: msg.id,
-            body,
-            room_ad_safety_rating: room.ad_safety_rating,
-          }),
-        }).catch(() => {});
+      if (error || !msg) {
+        rollback("Couldn't send — check your connection and try again.");
+        setSending(false);
+        return;
       }
+
+      fetch("/api/ai/moderate-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message_id: msg.id,
+          body,
+          room_ad_safety_rating: room.ad_safety_rating,
+        }),
+      }).catch(() => {});
     }
 
     await supabase
@@ -364,9 +447,34 @@ export default function RoomPage() {
   }
 
   if (!room) {
+    if (loadingRoom) {
+      // Skeleton while the room loads
+      return (
+        <div className="flex flex-col h-dvh bg-bg">
+          <header className="sticky top-0 z-40 bg-surface border-b border-border px-4 py-3 flex items-center gap-3">
+            <span className="text-text-tertiary text-sm">&larr;</span>
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3.5 w-40 rounded bg-border animate-pulse" />
+              <div className="h-2.5 w-24 rounded bg-border-light animate-pulse" />
+            </div>
+          </header>
+          <div className="flex-1 px-4 py-4 space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className={`flex ${i % 2 ? "justify-end" : "justify-start"}`}>
+                <div className={`h-10 rounded-2xl bg-border-light animate-pulse ${i % 2 ? "w-1/2" : "w-2/3"}`} />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    // Loaded but no such room
     return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <p className="text-text-tertiary text-sm">Loading room...</p>
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <p className="text-text-secondary text-sm">This room isn&apos;t available anymore.</p>
+        <a href="/rooms" className="text-accent text-sm font-medium hover:underline">
+          Back to your rooms
+        </a>
       </div>
     );
   }
@@ -438,7 +546,7 @@ export default function RoomPage() {
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
         {room.daily_prompt && (
           <div className="px-4 py-3">
             <PinnedPromptCard prompt={room.daily_prompt} />
@@ -495,6 +603,18 @@ export default function RoomPage() {
           <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {/* Transient feedback (send failed / message filtered) */}
+      {toast && (
+        <div className="px-3 pb-1.5">
+          <div
+            role="status"
+            className="text-xs text-text-secondary bg-surface border border-border rounded-lg px-3 py-2 shadow-sm"
+          >
+            {toast}
+          </div>
+        </div>
+      )}
 
       {/* Compose */}
       <div className="border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
