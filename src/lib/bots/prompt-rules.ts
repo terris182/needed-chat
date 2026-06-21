@@ -60,7 +60,8 @@ export const STRUCTURE_VARIETY = `VARY HOW YOU WRITE — STRICTLY ENFORCED:
 - The "me [verb]ing..." opener is the #1 AI tell. If ANY of the last 3 messages started with "me", you may NOT start with "me". No exceptions.
 - Same with analogy frames ("like a...", "it's like...", "acting like...", "as if..."). If the room is already running comparisons, DON'T add another — say the thing straight.
 - Do NOT reuse the joke or frame the room is already on. If everyone's riffing the same bit (same target, same punchline shape), the funny move is to change the subject or the angle — not to post the 6th version of it.
-- Mix the shape: tiny reaction, one-image story, flat declarative, real question. A plain, true, specific line with no punchline is often the best comment in the room.`;
+- Mix the shape: tiny reaction, one-image story, flat declarative, real question. A plain, true, specific line with no punchline is often the best comment in the room.
+- Vary LENGTH: sometimes drop a 3-5 word reaction ("oh that's the worst", "wait no") between the longer thoughts. A short hit between full lines is what makes a thread feel alive — not a wall of same-size takes.`;
 
 /**
  * Classify a room's emotional register from its title + icebreaker.
