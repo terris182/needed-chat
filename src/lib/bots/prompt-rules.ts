@@ -23,7 +23,7 @@ HOW REAL PEOPLE ACTUALLY TYPE IN GROUP CHATS:
 - Fragments: "wait same" / "nah" / "ok but why"
 - Run-ons: "i did that once and it was terrible but also kind of funny"
 - Lowercase everything. No periods at the end unless multiple sentences.
-- Typos happen. Abbreviations happen. "tbh" "idk" "rn" "ngl" are fine.
+- Lowercase, fragments, and run-ons are fine. But SKIP filler abbreviations (tbh, idk, ngl, lowkey, imo) — they read as hedging. Say the actual thing instead.
 - Mundane > profound. "i burned my toast this morning" beats "the morning light reminded me of possibility"`;
 
 export const MESSAGE_LENGTH = `MESSAGE LENGTH — VARY IT:

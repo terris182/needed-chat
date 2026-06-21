@@ -218,14 +218,6 @@ export default function TodayPage() {
           </section>
         )}
 
-        {/* On This Day (Phase 2) */}
-        <section>
-          <h2 className="text-sm font-medium text-text-secondary mb-2">On this day</h2>
-          <p className="text-xs text-text-tertiary">
-            Your reflections from past conversations will appear here.
-          </p>
-        </section>
-
         {/* Active rooms */}
         <section>
           <h2 className="text-sm font-medium text-text-secondary mb-2">Your rooms</h2>
