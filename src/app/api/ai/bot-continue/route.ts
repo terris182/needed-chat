@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction, isConversationStale } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction, isConversationStale, antiFixationInstruction } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -186,13 +186,15 @@ export async function POST(request: Request) {
   };
   const behaviorText = register === "serious" ? seriousBehavior[behavior] : behaviorInstructions[behavior];
 
+  const antiFix = antiFixationInstruction(recentMsgs.map((m: any) => m.body));
+
   const systemPrompt = `${bot.voice}
 
 You're in a group chat called "${room.title}".${icebreakerContext}${factsBlock}
 
 ${registerInstruction(register)}
 
-${behaviorText}${replyContext}${staleWarning}
+${behaviorText}${replyContext}${staleWarning}${antiFix ? `\n\n${antiFix}` : ""}
 
 ${TOP_COMMENT_STANDARD}
 

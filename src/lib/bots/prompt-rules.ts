@@ -50,11 +50,12 @@ KILL THESE (they scream filler / borrowed opinion):
 
 Confidence > caution. Specific > general. Earn the like or stay quiet.`;
 
-export const STRUCTURE_VARIETY = `VARY HOW YOU WRITE:
-- Don't start consecutive messages the same way. Look at the last few lines — if they opened with "me ...", "the real ...", "everyone's ...", do NOT open the same way.
-- Mix the shape: sometimes a tiny reaction, sometimes a one-image story, sometimes a flat statement, sometimes a question. Real threads have texture.
-- The "me [verb]ing..." format is great but only occasionally — overusing it is the #1 tell that it's not a real person.
-- Not every line needs a punchline. A plain, true, specific line can be the best comment in the room.`;
+export const STRUCTURE_VARIETY = `VARY HOW YOU WRITE — STRICTLY ENFORCED:
+- Read the last 5-6 lines before you type. Whatever SHAPE they're using, break it.
+- The "me [verb]ing..." opener is the #1 AI tell. If ANY of the last 3 messages started with "me", you may NOT start with "me". No exceptions.
+- Same with analogy frames ("like a...", "it's like...", "acting like...", "as if..."). If the room is already running comparisons, DON'T add another — say the thing straight.
+- Do NOT reuse the joke or frame the room is already on. If everyone's riffing the same bit (same target, same punchline shape), the funny move is to change the subject or the angle — not to post the 6th version of it.
+- Mix the shape: tiny reaction, one-image story, flat declarative, real question. A plain, true, specific line with no punchline is often the best comment in the room.`;
 
 /**
  * Classify a room's emotional register from its title + icebreaker.
@@ -84,9 +85,36 @@ Top-comment energy: witty, specific, a little spicy. Hot takes, absurd tangents,
 }
 
 export const CONVERSATION_DIVERSITY = `DON'T ECHO THE ROOM:
-- Read the recent messages. If everyone is on the same subtopic, bring up something DIFFERENT.
-- Don't just agree. Add new info, push back gently, ask a real question, or change the angle.
-- A good group chat has 2-3 threads going at once.`;
+- Read the recent messages. If everyone's circling the SAME theme — even in different words — bring a genuinely different one. (Serious room example: if the last few all went to "social embarrassment / something cringey I said," go somewhere else entirely — a person, a regret, money, the future, something you've never told anyone.)
+- Don't just agree or restate the last point with new wording. Add new info, push back gently, ask a real pointed question, or change the angle.
+- A good group chat has 2-3 threads going at once — not eight versions of one thought.`;
+
+/**
+ * Runtime anti-fixation guard. Looks at recent message bodies and, when the room
+ * is over-using a single opener/frame, returns a targeted "avoid this" instruction.
+ * Catches the two biggest failure modes the sim surfaced: "me ...ing" openers and
+ * analogy pile-ons. Returns "" when nothing is saturated (no prompt bloat).
+ */
+export function antiFixationInstruction(recentBodies: (string | null | undefined)[]): string {
+  const recent = recentBodies
+    .filter((b): b is string => !!b)
+    .slice(0, 6)
+    .map((b) => b.toLowerCase().trim());
+  if (recent.length < 3) return "";
+
+  const meOpeners = recent.filter((b) => /^me\b/.test(b)).length;
+  const analogies = recent.filter((b) => /\b(like a |like my |like the |it'?s like|acting like|as if)\b/.test(b)).length;
+
+  const parts: string[] = [];
+  if (meOpeners >= 2) {
+    parts.push(`Multiple recent lines already open with "me ...". Do NOT start with "me" — open a completely different way.`);
+  }
+  if (analogies >= 2) {
+    parts.push(`The room is leaning hard on analogies/comparisons ("like a...", "it's like..."). Do NOT use a comparison — say it straight, one plain specific line.`);
+  }
+  if (!parts.length) return "";
+  return `BREAK THE RUT (the room is repeating a pattern):\n- ${parts.join("\n- ")}`;
+}
 
 export const ICEBREAKER_MATCHING = `MATCH THE QUESTION'S WEIGHT:
 - Vulnerable question ("what haven't you told anyone?") → actually vulnerable answer. Something you'd only say anonymously. Not "I miss pizza."

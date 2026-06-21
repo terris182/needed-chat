@@ -100,11 +100,13 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
 
   // Strip AI-prose openers
   body = body.replace(/^(I've been feeling|I've been thinking|I often think|I remember the day|I once sat|I keep thinking)\s/i, "");
-  // Strip trailing "you know?" / "right?" when tacked on
-  body = body.replace(/,?\s*(you know\??|right\??)\s*$/i, "");
+  // Strip trailing "you know?" / "right?" / "huh?" when tacked on (handles repeated ?)
+  body = body.replace(/,?\s*(you know\?*|right\?*|huh\?*)\s*$/i, "");
 
   // Strip hedge/filler openers that read as low-effort or borrowed-opinion
   body = body.replace(/^(idk,?\s*(i\s+(see it differently|mean|guess|think))?|tbh,?|i mean,?|i guess,?|fair,? but( also)?,?|ok,? but( also)?,?|wait,? but also,?|honestly,?|like,?)\s+/i, "");
+  // Strip empty-agreement openers ("so true, ...", "exactly ...") — keep the substance after
+  body = body.replace(/^(so true|so real|exactly|facts|big mood|same),?\s+/i, "");
   body = body.replace(/\s{2,}/g, " ").trim();
 
   // Reject pure-filler / empty-agreement whole messages (zero-like comments)
@@ -125,6 +127,12 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
   // Final truncation check
   const finalTruncated = truncationSignals.some((re) => re.test(body));
   if (finalTruncated && body.split(/\s+/).length > 10) return null;
+
+  // Reject a dangling lead-in that never resolved: "...and it.", "...but i", "...so the."
+  // (truncationSignals miss these because a trailing period makes them look complete.)
+  if (/\b(and|but|or|so|because|plus|also|then)\s+(i|it|the|a|an|we|they|you|he|she|to|of|that|this|my|your)\.?$/i.test(body)) {
+    return null;
+  }
 
   return body;
 }

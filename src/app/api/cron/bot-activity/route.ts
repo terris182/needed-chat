@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction, isConversationStale } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction, isConversationStale, antiFixationInstruction } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -97,6 +97,7 @@ export async function GET(request: Request) {
 
     // Diversified targeting — if stale, don't reply to anyone, bring new angle
     const stale = isConversationStale(lastMsgs);
+    const antiFix = antiFixationInstruction(lastMsgs.map((m: any) => m.body));
     const humanMsg = lastMsgs.find((m: any) => !botIds.includes(m.user_id));
     const botMsg = lastMsgs.find((m: any) => botIds.includes(m.user_id) && m.user_id !== bot.id);
     const roll = Math.random();
@@ -113,7 +114,7 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: `${bot.voice}\n\nYou're in a group chat called "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock} It's been quiet for a bit.${replyTarget ? ` Replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}${staleWarning}\n\n${registerInstruction(classifyRegister(room.title, room.daily_prompt))}\n\nSay something to keep the conversation going.\n\n${TOP_COMMENT_STANDARD}\n\n${ANTI_AI_POLISH}\n\n${ANTI_HALLUCINATION}\n\n${MESSAGE_LENGTH}\n\n${STRUCTURE_VARIETY}`,
+          content: `${bot.voice}\n\nYou're in a group chat called "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock} It's been quiet for a bit.${replyTarget ? ` Replying to ${replyTarget.users_profile?.username || "someone"} who said: "${replyTarget.body}"` : ""}${staleWarning}\n\n${registerInstruction(classifyRegister(room.title, room.daily_prompt))}\n\n${antiFix ? antiFix + " " : ""}Say something to keep the conversation going.\n\n${TOP_COMMENT_STANDARD}\n\n${ANTI_AI_POLISH}\n\n${ANTI_HALLUCINATION}\n\n${MESSAGE_LENGTH}\n\n${STRUCTURE_VARIETY}`,
         },
         { role: "user", content: `Recent conversation:\n${context}` },
       ],
