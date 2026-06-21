@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, CONVERSATION_DIVERSITY, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction, antiFixationInstruction } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -143,6 +143,7 @@ export async function POST(request: Request) {
     react_short: "One short, sincere line in your own specific words. Never 'so true' or a quip.",
   };
   const behaviorText = register === "serious" ? seriousBehavior[behavior] : behaviorInstructions[behavior];
+  const antiFix = antiFixationInstruction(recentMsgs.map((m: any) => m.body));
 
   // Typing delay
   const delay = 2000 + Math.random() * 2000;
@@ -161,7 +162,7 @@ You're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".
 
 ${registerInstruction(register)}
 
-${behaviorText}${replyInstruction}
+${behaviorText}${replyInstruction}${antiFix ? `\n\n${antiFix}` : ""}
 
 ${TOP_COMMENT_STANDARD}
 

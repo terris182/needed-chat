@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { getActivePersonas, randomBot, randomBots } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
 import { getTopicContext } from "@/lib/bots/topic-context";
-import { ANTI_HALLUCINATION, ANTI_AI_POLISH, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction } from "@/lib/bots/prompt-rules";
+import { ANTI_HALLUCINATION, ANTI_AI_POLISH, MESSAGE_LENGTH, TOP_COMMENT_STANDARD, STRUCTURE_VARIETY, classifyRegister, registerInstruction, antiFixationInstruction } from "@/lib/bots/prompt-rules";
 
 let _supabase: any = null;
 function getSupabase() {
@@ -195,6 +195,7 @@ async function continueExistingConvo(room: any, messages: any[], botIds: string[
   const botMsg = messages.find((m: any) => botIds.includes(m.user_id) && m.user_id !== bot.id);
   const roll = Math.random();
   const replyTarget = roll < 0.3 ? humanMsg : roll < 0.5 ? botMsg : null;
+  const antiFix = antiFixationInstruction(messages.map((m: any) => m.body));
 
   const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
@@ -203,7 +204,7 @@ async function continueExistingConvo(room: any, messages: any[], botIds: string[
     messages: [
       {
         role: "system",
-        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""}\n\n${registerInstruction(classifyRegister(room.title, room.daily_prompt))}\n\nShare something real and specific — the kind of line that would be a top comment. No greetings, no names, no therapy-speak. Lowercase ok.\n\n${TOP_COMMENT_STANDARD}\n\n${ANTI_AI_POLISH}\n\n${MESSAGE_LENGTH}\n\n${STRUCTURE_VARIETY}`,
+        content: `${bot.voice}\n\nYou're in "${room.title}".${room.daily_prompt ? ` Topic: "${room.daily_prompt}".` : ""}${factsBlock}${replyTarget ? ` Replying to someone who said: "${replyTarget.body}"` : ""}\n\n${registerInstruction(classifyRegister(room.title, room.daily_prompt))}\n\n${antiFix ? antiFix + " " : ""}Share something real and specific — the kind of line that would be a top comment. No greetings, no names, no therapy-speak. Lowercase ok.\n\n${TOP_COMMENT_STANDARD}\n\n${ANTI_AI_POLISH}\n\n${MESSAGE_LENGTH}\n\n${STRUCTURE_VARIETY}`,
       },
       { role: "user", content: `Recent conversation:\n${context}` },
     ],

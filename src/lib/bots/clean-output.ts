@@ -127,6 +127,10 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
   // Reject an unbalanced double-quote — an opened quote that never closed = truncated
   if (((body.match(/["“”]/g) || []).length % 2) === 1) return null;
 
+  // Strip self-quoting wrappers the model adds (balanced quotes only — odd counts already rejected)
+  body = body.replace(/["“”]/g, "").trim();
+  if (!body || body.split(/\s+/).length < 2) return null;
+
   // Final truncation check
   const finalTruncated = truncationSignals.some((re) => re.test(body));
   if (finalTruncated && body.split(/\s+/).length > 10) return null;

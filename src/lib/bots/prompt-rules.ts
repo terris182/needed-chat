@@ -69,7 +69,11 @@ export const STRUCTURE_VARIETY = `VARY HOW YOU WRITE — STRICTLY ENFORCED:
 export function classifyRegister(title?: string | null, prompt?: string | null): "serious" | "playful" | "neutral" {
   const t = `${title || ""} ${prompt || ""}`.toLowerCase();
   const serious = ["lonely", "loneli", "alone", "grief", "griev", "loss", "lost", "miss ", "missing", "anxiet", "anxious", "3am", "3 am", "late night", "night thoughts", "burnout", "burn out", "sober", "depress", "scared", "afraid", "fear", "cry", "crying", "hurt", "heavy", "struggl", "therap", "quiet", "unspoken", "never told", "keeps you up", "processing", "overwhelm", "exhaust", "numb", "empty", "ashamed", "shame", "regret", "broke up", "breakup", "divorce", "sick", "ill ", "diagnos", "seen by", "wish someone"];
-  const playful = ["world cup", "swift", "fifa", "soccer", "football", "music friday", "underrated", "hype", "fandom", "premiere", "watchers", "the bear", "stranger things", "avatar", "hot take", "spicy", "draft", "tier list", "binge", "pop ", "meme", "trending", "favorite", "best ", "ranking"];
+  const playful = ["world cup", "swift", "fifa", "soccer", "football", "music friday", "underrated", "overrated", "hype", "fandom", "premiere", "watchers", "the bear", "stranger things", "avatar", "hot take", "spicy", "draft", "tier list", "binge", "pop ", "meme", "trending", "favorite", "best ", "ranking", "gaming", "console", "speedrun", "anime", "spoiler", "masterpiece"];
+  // Strong fun signals win even when an ambiguous serious word (e.g. "night") is also present —
+  // e.g. "Gaming Late Night" is a playful room, not a heavy one.
+  const strongPlayful = ["world cup", "fifa", "soccer", "football", "gaming", "stranger things", "avatar", "the bear", "anime", "tier list", "speedrun", "fandom", "swift", "premiere", "hot take"];
+  if (strongPlayful.some((w) => t.includes(w))) return "playful";
   if (serious.some((w) => t.includes(w))) return "serious";
   if (playful.some((w) => t.includes(w))) return "playful";
   return "neutral";
@@ -93,6 +97,7 @@ Top-comment energy: witty, specific, a little spicy. Hot takes, absurd tangents,
 
 export const CONVERSATION_DIVERSITY = `DON'T ECHO THE ROOM:
 - Read the recent messages. If everyone's circling the SAME theme — even in different words — bring a genuinely different one. (Serious room example: if the last few all went to "social embarrassment / something cringey I said," go somewhere else entirely — a person, a regret, money, the future, something you've never told anyone.)
+- Don't all reach for the SAME KIND of detail. If the last few share a shape ("their stuff is still around", "i tried to work and got distracted", "i heard their song and froze"), switch facets — the social side, the body, the guilt, the logistics, the unexpected relief, the part that surprised you. Same topic, totally different angle.
 - Don't just agree or restate the last point with new wording. Add new info, push back gently, ask a real pointed question, or change the angle.
 - A good group chat has 2-3 threads going at once — not eight versions of one thought.`;
 
@@ -137,6 +142,23 @@ export function antiFixationInstruction(recentBodies: (string | null | undefined
   if (repeatedLead) {
     parts.push(`Several messages are starting with the same words ("${repeatedLead}..."). Start yours a totally different way — don't reuse that opener.`);
   }
+
+  // Content fixation: one non-trivial word dominating recent messages (e.g. everyone on the same song/team).
+  const STOP = new Set(["the","and","that","this","with","just","like","really","about","your","they","them","when","what","have","been","feel","feels","still","over","into","from","there","their","were","because","would","could","every","than","then","time","thing","things","yeah","gonna","wanna","know","even","much","some","most","more","cant","dont","wont","its","im","ive"]);
+  const docFreq = new Map<string, number>();
+  for (const b of recent) {
+    const seen = new Set(b.split(/[^a-z0-9']+/).filter((w) => w.length > 3 && !STOP.has(w)));
+    for (const w of seen) docFreq.set(w, (docFreq.get(w) || 0) + 1);
+  }
+  let hotWord = "";
+  let hotCount = 0;
+  for (const [w, c] of docFreq) {
+    if (c > hotCount) { hotWord = w; hotCount = c; }
+  }
+  if (hotCount >= 4) {
+    parts.push(`The room is stuck on "${hotWord}" — do NOT mention "${hotWord}" again. Name a different one and make your point about that instead.`);
+  }
+
   if (!parts.length) return "";
   return `BREAK THE RUT (the room is repeating a pattern):\n- ${parts.join("\n- ")}`;
 }
