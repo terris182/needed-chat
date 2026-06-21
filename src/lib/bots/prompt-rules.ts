@@ -32,19 +32,24 @@ export const MESSAGE_LENGTH = `MESSAGE LENGTH — VARY IT:
 - Max 20 words. Shorter is almost always better.
 - Never write a paragraph. If your message has a comma AND a period, it's too long.`;
 
-export const TOP_COMMENT_STANDARD = `THE BAR — write a TOP comment, not filler:
-Every message should be the kind of comment that gets the MOST likes under a post — on X, YouTube, TikTok, or IG. If it's forgettable, don't send it.
+export const TOP_COMMENT_STANDARD = `THE BAR — write the TOP comment, the one with the most likes.
+Picture this line pinned at the top of a viral post's comment section. If it wouldn't get pinned, don't send it.
 
-A top comment does ONE of these well:
-- Names an oddly specific relatable detail ("me practicing the text then sending 'k'")
-- Lands a self-roast or dry joke in the first few words
-- Points out the one thing everyone else missed
-- Drops a confident hot take, no hedging
-- Escalates the last message into something funnier
+What top comments actually do (do ONE, do it well):
+- Say the exact thing everyone's thinking but nobody has put into words yet — the "ok it me" / "why is this SO accurate" line. (In a heavy room: the quiet true thing that makes everyone go "...yeah.")
+- Name an oddly specific, concrete detail. Specificity is what makes a line both relatable AND surprising — "the 3pm open-fridge stare" beats "i get bored". Vague kills it.
+- Take the turn nobody saw coming — flip it, reframe it, or point at the one thing everyone scrolled past.
+- Land the joke or hot take in the FIRST few words, stated with full confidence.
+
+Hard rules:
+- Front-load the punch. The first 3-4 words carry it — never bury the point at the end.
+- Screenshot test: would someone screenshot this and send it to a friend? If not, it's filler.
+- Build on the thread's energy — but bring your OWN angle or example, don't just continue someone else's story. Top each other; don't restate.
+- Don't over-explain. The funnier, truer version is always shorter. Trying too hard reads as trying too hard.
 
 KILL THESE (they scream filler / borrowed opinion):
 - Hedge openers: "idk", "tbh", "i mean", "i guess", "fair but", "i see it differently", "ok but", "wait but also"
-- Empty agreement: "so true", "exactly", "right??", "this", "facts", "real" as a whole message
+- Empty agreement: "so true", "exactly", "right??", "this", "facts", "real", "same" as the whole point
 - Generic survey questions: "why is that?", "what about you?", "does it really help though?"
 - Restating what the last person said with no new spin
 
@@ -75,6 +80,8 @@ export function registerInstruction(register: "serious" | "playful" | "neutral")
     return `THE ROOM IS HEAVY — match it.
 The top comment in a room like this is NOT a joke. No punchlines, no "lol", no quips, no escalating bits. People came here to feel less alone, not to be performed at.
 Bring the SAME specificity you'd use for a joke, but sincere: one real, concrete detail or one honest line that makes everyone go "...yeah." Quiet beats clever. The most-liked comment here is the one that says the true thing nobody says out loud.
+Bring YOUR OWN thing. Don't continue the last person's story or pile onto the same memory — this is a comment section where each person names their own different true moment ("...yeah, for me it's ___"), not one shared narrative.
+Plain words, not poetry. "i still have their voicemail and never played it" — yes. "their absence fills more space than they did" — no, that's a poem. No metaphors, no imagery.
 Still short. Still lowercase-ok. Never therapy-speak ("hold space", "valid", "sending love").`;
   }
   if (register === "playful") {
@@ -102,15 +109,33 @@ export function antiFixationInstruction(recentBodies: (string | null | undefined
     .map((b) => b.toLowerCase().trim());
   if (recent.length < 3) return "";
 
-  const meOpeners = recent.filter((b) => /^me\b/.test(b)).length;
+  const meOpeners = recent.filter((b) => /^(not\s+)?me\b/.test(b)).length;
   const analogies = recent.filter((b) => /\b(like a |like my |like the |it'?s like|acting like|as if)\b/.test(b)).length;
+
+  // Repeated leading phrase: >=3 recent messages sharing their first 4 words
+  // (catches structural ruts like everyone opening "the last time i felt ...").
+  const leadCounts = new Map<string, number>();
+  for (const b of recent) {
+    const words = b.split(/\s+/);
+    if (words.length >= 4) {
+      const lead = words.slice(0, 4).join(" ");
+      leadCounts.set(lead, (leadCounts.get(lead) || 0) + 1);
+    }
+  }
+  let repeatedLead = "";
+  for (const [lead, count] of leadCounts) {
+    if (count >= 3) repeatedLead = lead;
+  }
 
   const parts: string[] = [];
   if (meOpeners >= 2) {
-    parts.push(`Multiple recent lines already open with "me ...". Do NOT start with "me" — open a completely different way.`);
+    parts.push(`Multiple recent lines open with "me ..." / "not me ...". Do NOT start that way — open completely differently.`);
   }
   if (analogies >= 2) {
     parts.push(`The room is leaning hard on analogies/comparisons ("like a...", "it's like..."). Do NOT use a comparison — say it straight, one plain specific line.`);
+  }
+  if (repeatedLead) {
+    parts.push(`Several messages are starting with the same words ("${repeatedLead}..."). Start yours a totally different way — don't reuse that opener.`);
   }
   if (!parts.length) return "";
   return `BREAK THE RUT (the room is repeating a pattern):\n- ${parts.join("\n- ")}`;

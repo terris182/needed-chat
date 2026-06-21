@@ -41,7 +41,7 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
   let prevHandle: string;
   do {
     prevHandle = body;
-    body = body.replace(/^[a-z0-9]+(?:-[a-z0-9]+)+:\s*/i, "").trim();
+    body = body.replace(/^[a-z0-9]{3,}(?:-[a-z0-9]+)*:\s*/i, "").trim();
   } while (body !== prevHandle && body.length > 0);
 
   // Remove leading em-dashes, quotes
@@ -123,6 +123,9 @@ export function cleanBotOutput(raw: string | null | undefined): string | null {
 
   // Reject if ends with a dangling apostrophe/quote (truncated mid-word)
   if (/[''`]$/.test(body)) return null;
+
+  // Reject an unbalanced double-quote — an opened quote that never closed = truncated
+  if (((body.match(/["“”]/g) || []).length % 2) === 1) return null;
 
   // Final truncation check
   const finalTruncated = truncationSignals.some((re) => re.test(body));
