@@ -17,7 +17,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 
 ## Cluster: Friendship & feeling left behind
 - feeling left behind by friends — live (left-behind-by-friends)
-- what to do when your friends stop inviting you — queued
+- what to do when your friends stop inviting you — queued # priority
 - how to deal with growing apart from friends — live (growing-apart-from-friends)
 - feeling like a burden to my friends — queued # priority
 - how to make friends as an adult when it feels impossible — queued # priority
@@ -27,7 +27,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 - how to grieve when you have to keep functioning — live (grieving-while-functioning)
 - grief that comes back months later — queued
 - how to support yourself through the first holiday after a loss — queued
-- is it normal to still be grieving after a year — queued
+- is it normal to still be grieving after a year — queued # priority
 
 ## Cluster: Anxiety & racing thoughts
 - how to calm down when anxiety hits at night — live (anxiety-at-3am)
@@ -38,7 +38,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 
 ## Cluster: Everyday hard-to-say things
 - what to say when someone asks how are you and you're not okay — live (im-not-okay)
-- how to tell someone you're struggling without making it a big deal — queued
+- how to tell someone you're struggling without making it a big deal — queued # priority
 - how to ask for support when you hate being a bother — queued
 - what to do when you feel numb and nothing matters — live (feeling-numb)
 - how to talk about feelings when you were raised not to — queued
@@ -47,7 +47,7 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 - how to cope when everything feels like too much — live (everything-too-much)
 - what to do when you're exhausted but can't rest — live (exhausted-cant-rest)
 - feeling overwhelmed and not knowing where to start — queued # priority
-- how to get through a day when you have no motivation — queued
+- how to get through a day when you have no motivation — queued # priority
 
 ## Cluster: Relationships & conflict
 - how to cope after a fight with someone you love — queued
