@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 
-export default function AuthPage() {
+function AuthForm() {
+  const searchParams = useSearchParams();
+  const nextParam = searchParams.get("next");
+  const urlError = searchParams.get("error");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    urlError === "could_not_verify"
+      ? "That link didn't work — it may have expired. Enter your email and we'll send a fresh one."
+      : ""
+  );
   const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -17,7 +25,11 @@ export default function AuthPage() {
     setLoading(true);
     setError("");
 
-    const redirectTo = `${window.location.origin}/auth/callback`;
+    const next =
+      nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
+        ? `?next=${encodeURIComponent(nextParam)}`
+        : "";
+    const redirectTo = `${window.location.origin}/auth/callback${next}`;
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: redirectTo },
@@ -71,6 +83,11 @@ export default function AuthPage() {
           </Button>
         </form>
 
+        <p className="text-xs text-text-secondary text-center leading-relaxed">
+          Your email is only used to sign you in. It&apos;s never shown to
+          anyone — in rooms you&apos;re just an anonymous username.
+        </p>
+
         <p className="text-xs text-text-tertiary text-center">
           You must be 18 or older to use needed.chat.
           <br />
@@ -78,5 +95,13 @@ export default function AuthPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense>
+      <AuthForm />
+    </Suspense>
   );
 }

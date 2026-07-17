@@ -41,8 +41,11 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/blog/");
 
   if (!user && !isPublic) {
+    // Send them to sign-in (not the landing page) and preserve where they
+    // were headed so the magic-link flow can drop them back there.
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/auth";
+    url.search = `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(url);
   }
 

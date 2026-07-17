@@ -37,14 +37,12 @@ export const metadata: Metadata = {
       "Anonymous rooms that match you with a few people going through the same thing. No profiles. No followers. Free.",
     url: "https://needed.chat",
     locale: "en_US",
-    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "needed.chat" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "needed.chat — you're not alone, and you don't have to perform",
     description:
       "Anonymous rooms that match you with a few people going through the same thing. No profiles. No followers. Free.",
-    images: ["/icons/icon-512.png"],
   },
   robots: {
     index: true,

@@ -99,6 +99,9 @@ export default function LandingPage() {
             Find your room
           </Link>
           <p className="text-xs text-text-secondary">Free · Anonymous · No app to download</p>
+          <p className="text-xs text-text-tertiary">
+            Just an email to sign in — it&apos;s never shown to anyone.
+          </p>
         </section>
 
         {/* How it works */}
