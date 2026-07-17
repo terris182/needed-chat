@@ -37,6 +37,8 @@ export async function updateSession(request: NextRequest) {
     publicPaths.some((p) => pathname === p) ||
     pathname === "/sitemap.xml" ||
     pathname === "/robots.txt" ||
+    pathname === "/opengraph-image" ||
+    pathname === "/icon" ||
     pathname === "/blog" ||
     pathname.startsWith("/blog/");
 
