@@ -50,10 +50,10 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 - how to get through a day when you have no motivation — queued # priority
 
 ## Cluster: Relationships & conflict
-- how to cope after a fight with someone you love — queued
+- how to cope after a fight with someone you love — queued # priority
 - feeling unseen in a relationship — live (unseen-in-relationship)
-- how to deal with feeling rejected — queued
-- what to do when you feel taken for granted — queued
+- how to deal with feeling rejected — queued # priority
+- what to do when you feel taken for granted — queued # priority
 
 ## Cluster: Late-night / 3am intent (high emotional charge, gentle)
 - who can i talk to at 2am when i can't sleep — live (talk-to-someone-at-2am)
@@ -63,6 +63,6 @@ never optimize for them). Stay E-E-A-T honest: peer support, not treatment.
 
 ## Cluster: Specific life moments
 - how to cope with loneliness during the holidays — queued
-- feeling left out on social media — queued
+- feeling left out on social media — queued # priority
 - how to deal with sunday night dread — queued # priority
 - coping with an empty house after kids leave — queued
