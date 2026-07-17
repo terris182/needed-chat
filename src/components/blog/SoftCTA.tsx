@@ -8,7 +8,8 @@ export default function SoftCTA() {
       </p>
       <p className="mt-2 text-sm text-ink-soft leading-relaxed">
         needed.chat is a quiet, anonymous place to talk about whatever you have
-        needed to talk about. No account needed to start, and it is free.
+        needed to talk about. Just an email to sign in — never shown to anyone —
+        and it is free.
       </p>
       <Link
         href="/today"

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "Answer one question and get matched into a small, anonymous room of people going through the same thing. No profiles, no followers — just the conversation you needed. Free.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "needed.chat — you're not alone, and you don't have to perform",
+    title: "needed.chat — anonymous rooms for whatever you needed to talk about",
     description:
       "Anonymous rooms that match you with a few people going through the same thing. No profiles. No followers. Free.",
     url: "/",
@@ -167,7 +167,7 @@ export default function LandingPage() {
         {/* Closing CTA */}
         <section className="flex flex-col items-center gap-3 text-center">
           <p className="text-base font-medium text-text-primary">
-            You&apos;re not alone, and you don&apos;t have to perform.
+            You don&apos;t have to perform here. Just say it.
           </p>
           <Link
             href="/auth"

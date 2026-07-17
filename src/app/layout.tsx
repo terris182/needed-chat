@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "needed.chat",
-    title: "needed.chat — you're not alone, and you don't have to perform",
+    title: "needed.chat — anonymous rooms for whatever you needed to talk about",
     description:
       "Anonymous rooms that match you with a few people going through the same thing. No profiles. No followers. Free.",
     url: "https://needed.chat",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "needed.chat — you're not alone, and you don't have to perform",
+    title: "needed.chat — anonymous rooms for whatever you needed to talk about",
     description:
       "Anonymous rooms that match you with a few people going through the same thing. No profiles. No followers. Free.",
   },

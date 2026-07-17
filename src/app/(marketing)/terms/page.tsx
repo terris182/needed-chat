@@ -113,9 +113,16 @@ export default function TermsPage() {
           </h2>
           <p>
             The core service is free. Paid plans (Plus and Host) are billed
-            monthly through Stripe and renew automatically until you cancel.
-            You can cancel anytime; your plan stays active until the end of the
-            billing period already paid for. Prices may change — we&apos;ll
+            monthly through Stripe and renew automatically until cancelled. To
+            cancel, email{" "}
+            <a
+              href="mailto:terriskenlin@gmail.com"
+              className="underline underline-offset-2"
+            >
+              terriskenlin@gmail.com
+            </a>{" "}
+            from your sign-in address; your plan stays active until the end of
+            the billing period already paid for. Prices may change — we&apos;ll
             tell you before a change affects you.
           </p>
         </section>
@@ -160,10 +167,10 @@ export default function TermsPage() {
           <p>
             Questions about these terms:{" "}
             <a
-              href="mailto:support@rise.la"
+              href="mailto:terriskenlin@gmail.com"
               className="underline underline-offset-2"
             >
-              support@rise.la
+              terriskenlin@gmail.com
             </a>
             . See also our{" "}
             <Link href="/privacy" className="underline underline-offset-2">
