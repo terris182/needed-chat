@@ -47,6 +47,12 @@ export default function MarketingLayout({
             <Link href="/today" className="underline underline-offset-2">
               Talk now
             </Link>
+            <Link href="/terms" className="underline underline-offset-2">
+              Terms
+            </Link>
+            <Link href="/privacy" className="underline underline-offset-2">
+              Privacy
+            </Link>
           </nav>
         </div>
       </footer>

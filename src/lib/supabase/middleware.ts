@@ -32,7 +32,14 @@ export async function updateSession(request: NextRequest) {
   // Redirect unauthenticated users to landing (except public routes).
   // Public: landing, auth flows, and all marketing/SEO surfaces (blog + sitemap/robots).
   const pathname = request.nextUrl.pathname;
-  const publicPaths = ["/", "/auth", "/auth/callback", "/auth/confirm"];
+  const publicPaths = [
+    "/",
+    "/auth",
+    "/auth/callback",
+    "/auth/confirm",
+    "/terms",
+    "/privacy",
+  ];
   const isPublic =
     publicPaths.some((p) => pathname === p) ||
     pathname === "/sitemap.xml" ||

@@ -179,12 +179,26 @@ export default function LandingPage() {
 
         {/* Footer */}
         <footer className="pt-2 text-center">
-          <Link
-            href="/blog"
-            className="text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded"
-          >
-            Read the blog
-          </Link>
+          <div className="flex items-center justify-center gap-4">
+            <Link
+              href="/blog"
+              className="text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded"
+            >
+              Read the blog
+            </Link>
+            <Link
+              href="/terms"
+              className="text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/privacy"
+              className="text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded"
+            >
+              Privacy
+            </Link>
+          </div>
           <p className="mt-3 text-[11px] text-text-tertiary">
             needed.chat — a place to be heard
           </p>

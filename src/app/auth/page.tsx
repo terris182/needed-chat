@@ -91,7 +91,15 @@ function AuthForm() {
         <p className="text-xs text-text-tertiary text-center">
           You must be 18 or older to use needed.chat.
           <br />
-          By continuing, you agree to our Terms and Privacy Policy.
+          By continuing, you agree to our{" "}
+          <a href="/terms" className="underline underline-offset-2">
+            Terms
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" className="underline underline-offset-2">
+            Privacy Policy
+          </a>
+          .
         </p>
       </div>
     </main>
