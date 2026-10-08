@@ -6,6 +6,8 @@ SUPABASE_URL="${SUPABASE_URL:?Set SUPABASE_URL env var}"
 SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY env var}"
 APP_URL="${APP_URL:-https://needed.chat}"
 WEBHOOK_SECRET="${WEBHOOK_SECRET:-}"
+# bot-continue and bot-reply require the cron bearer (same value as the app CRON_SECRET)
+CRON_SECRET="${CRON_SECRET:?Set CRON_SECRET env var}"
 
 sb() {
   curl -s "$SUPABASE_URL/rest/v1/$1" \
@@ -46,6 +48,7 @@ START=$(python3 -c "import time; print(time.time())")
 
 RESULT=$(curl -sL -X POST "$APP_URL/api/ai/bot-continue" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $CRON_SECRET" \
   -d "{\"room_id\":\"$ROOM_ID\",\"last_user_message_at\":\"$NOW\"}")
 
 END=$(python3 -c "import time; print(time.time())")
@@ -86,6 +89,7 @@ else
   NOW2=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   RESULT2=$(curl -sL -X POST "$APP_URL/api/ai/bot-continue" \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $CRON_SECRET" \
     -d "{\"room_id\":\"$ROOM_ID\",\"last_user_message_at\":\"$NOW2\"}")
   echo "   Retry result: $RESULT2"
 fi
@@ -111,6 +115,7 @@ if [ -n "$USER_ID" ]; then
   START2=$(python3 -c "import time; print(time.time())")
   REPLY=$(curl -sL -X POST "$APP_URL/api/ai/bot-reply" \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $CRON_SECRET" \
     -d "{\"room_id\":\"$ROOM_ID\",\"user_id\":\"$USER_ID\"}")
   END2=$(python3 -c "import time; print(time.time())")
   ELAPSED2=$(python3 -c "print(f'{$END2 - $START2:.1f}s')")

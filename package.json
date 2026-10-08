@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node --test src/lib/*.test.mjs",
     "db:generate": "supabase gen types typescript --local > src/lib/database.types.ts"
   },
   "dependencies": {
