@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getCaller } from "@/lib/api-auth-server";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
@@ -39,6 +40,9 @@ const BEHAVIORS = [
 ] as const;
 
 export async function POST(request: Request) {
+  const caller = await getCaller(request);
+  if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { room_id, last_user_message_at } = await request.json();
   if (!room_id) {
     return NextResponse.json({ error: "Missing room_id" }, { status: 400 });

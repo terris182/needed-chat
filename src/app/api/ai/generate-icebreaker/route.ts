@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCaller } from "@/lib/api-auth-server";
 import OpenAI from "openai";
 
 let _openai: OpenAI | null = null;
@@ -9,6 +10,9 @@ function getOpenAI() {
 
 // Generate a warm public icebreaker question for entering a room
 export async function POST(request: Request) {
+  const caller = await getCaller(request, false);
+  if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { room_title, category, tags } = await request.json();
 

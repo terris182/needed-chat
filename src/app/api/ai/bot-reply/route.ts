@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getCaller } from "@/lib/api-auth-server";
 import OpenAI from "openai";
 import { getActivePersonas, randomBot } from "@/lib/bots/personas";
 import { cleanBotOutput } from "@/lib/bots/clean-output";
@@ -29,7 +30,14 @@ const BEHAVIORS = [
 ] as const;
 
 export async function POST(request: Request) {
-  const { room_id, user_id } = await request.json();
+  const caller = await getCaller(request);
+  if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const input = await request.json();
+  const { room_id } = input;
+  // Signed-in users can only trigger replies as themselves; only the cron
+  // bearer may name a user_id.
+  const user_id = caller.kind === "user" ? caller.userId : input.user_id;
   if (!room_id || !user_id) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
